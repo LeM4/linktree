@@ -20,7 +20,7 @@ This project intentionally avoids client-side API fetching and SPA architecture.
 ## FINAL TECH DECISIONS (NO ALTERNATIVES)
 
 ### Backend
-- **Node.js**
+- **Bun** (use Bun instead of Node.js)
 - **Fastify** (mandatory)
 
 ### Templates
@@ -72,7 +72,7 @@ No JSON APIs for public pages.
 ## Application Structure (MANDATORY)
 Gemini should scaffold the project using the following structure:
 ```bash
-/app
+/linktree              #Current Workspace
   /routes
     public.js          # Public Linktree page
     admin.js           # Admin dashboard routes

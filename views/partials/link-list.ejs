@@ -1,0 +1,40 @@
+<div id="link-list">
+    <% links.forEach(link => { %>
+        <div class="bg-gray-50 p-4 rounded-lg shadow-sm mb-4 flex items-center justify-between" id="link-<%= link.id %>">
+            <div>
+                <p class="font-bold text-lg"><%= link.title %></p>
+                <p class="text-gray-600 text-sm"><%= link.url %></p>
+                <p class="text-gray-500 text-xs">Enabled: <%= link.enabled ? 'Yes' : 'No' %></p>
+                <p class="text-gray-500 text-xs">Blocked Countries: <%= link.blocked_countries && link.blocked_countries !== 'null' ? JSON.parse(link.blocked_countries).join(', ') : 'None' %></p>
+            </div>
+            <div class="flex space-x-2">
+                <button hx-post="/admin/links/<%= link.id %>/toggle"
+                        hx-target="#link-list"
+                        hx-swap="outerHTML"
+                        class="bg-yellow-500 text-white px-3 py-1 rounded-md text-sm hover:bg-yellow-600">
+                    Toggle
+                </button>
+                <div x-data="{ open: false, countries: '<%= link.blocked_countries && link.blocked_countries !== 'null' ? JSON.parse(link.blocked_countries).join(',') : '' %>' }">
+                    <button @click="open = !open" class="bg-purple-500 text-white px-3 py-1 rounded-md text-sm hover:bg-purple-600">
+                        Edit Countries
+                    </button>
+                    <div x-show="open" @click.away="open = false" class="absolute bg-white p-2 rounded-md shadow-lg mt-1 z-10">
+                        <form hx-post="/admin/links/<%= link.id %>/countries"
+                              hx-target="#link-list"
+                              hx-swap="outerHTML"
+                              class="flex flex-col space-y-2">
+                            <input type="text" name="countries" x-model="countries" placeholder="e.g. US,DE,FR" class="p-1 border rounded-md text-sm">
+                            <button type="submit" @click="open = false" class="bg-green-500 text-white px-2 py-1 rounded-md text-sm">Save</button>
+                        </form>
+                    </div>
+                </div>
+                <button hx-delete="/admin/links/<%= link.id %>"
+                        hx-target="#link-list"
+                        hx-swap="outerHTML"
+                        class="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600">
+                    Delete
+                </button>
+            </div>
+        </div>
+    <% }); %>
+</div>
