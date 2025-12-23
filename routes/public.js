@@ -1,6 +1,7 @@
-import { getVisibleLinks } from '../lib/db.js';
+import { getVisibleLinks, getSettings } from '../lib/db.js';
 import { getCountry } from '../lib/geo.js';
 import { countries as countryList } from 'countries-list';
+import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
 
 async function publicRoutes(fastify, options) {
   // The main public route that displays the links.
@@ -24,8 +25,19 @@ async function publicRoutes(fastify, options) {
       name: country.name,
     }));
 
-    // 5. Render the main page, passing the links and flags for the popup.
-    return reply.view('linktree', { links, showCountryPopup, countries });
+    // 5. Get theme settings and calculate colors
+    const settings = getSettings() || {};
+    const theme = {
+      containerColor: settings.container_color || '#f0f0f0',
+    };
+    theme.backgroundColor = createShade(theme.containerColor);
+    theme.textColor = getContrastingTextColor(theme.backgroundColor);
+    theme.linkColor = createTint(theme.containerColor);
+    theme.linkTextColor = getContrastingTextColor(theme.linkColor);
+
+
+    // 6. Render the main page, passing the links, flags for the popup, and theme colors.
+    return reply.view('linktree', { links, showCountryPopup, countries, theme });
   });
 
   // This route handles the country selection from the popup.

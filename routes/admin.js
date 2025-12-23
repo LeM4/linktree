@@ -1,10 +1,41 @@
-import { getLinks, addLink, toggleLink, updateLinkCountries, deleteLink } from '../lib/db.js';
+import { getLinks, addLink, toggleLink, updateLinkCountries, deleteLink, getSettings, updateSettings } from '../lib/db.js';
+import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
 
 async function adminRoutes(fastify, options) {
   // GET /admin - Display admin dashboard
   fastify.get('/admin', async (request, reply) => {
     const links = getLinks();
-    return reply.view('admin', { links: links });
+    const settings = getSettings() || {};
+    const theme = {
+      containerColor: settings.container_color || '#f0f0f0',
+    };
+    theme.backgroundColor = createShade(theme.containerColor);
+    theme.textColor = getContrastingTextColor(theme.backgroundColor);
+    theme.linkColor = createTint(theme.containerColor);
+    theme.linkTextColor = getContrastingTextColor(theme.linkColor);
+
+    return reply.view('admin', { links: links, settings: settings, theme: theme });
+  });
+
+  // POST /admin/settings - Update theme settings
+  fastify.post('/admin/settings', async (request, reply) => {
+    const { containerColor } = request.body;
+    updateSettings(containerColor);
+
+    if (request.headers['hx-request']) {
+      const links = getLinks();
+      const settings = getSettings();
+      const theme = {
+        containerColor: settings.container_color || '#f0f0f0',
+      };
+      theme.backgroundColor = createShade(theme.containerColor);
+      theme.textColor = getContrastingTextColor(theme.backgroundColor);
+      theme.linkColor = createTint(theme.containerColor);
+      theme.linkTextColor = getContrastingTextColor(theme.linkColor);
+      return reply.view('admin', { links: links, settings: settings, theme: theme });
+    }
+
+    return reply.redirect('/admin');
   });
 
   // POST /admin/links - Add a new link
