@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Links</title>
     <link rel="stylesheet" href="/public/styles.css">
+    <script>
+        window.countriesData = <%- JSON.stringify(countries) %>;
+    </script>
     <script defer src="https://unpkg.com/alpinejs@3.13.5"></script>
 </head>
 <body class="bg-gray-100" x-data="{ showPopup: <%= showCountryPopup %> }">
