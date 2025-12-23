@@ -1,18 +1,21 @@
 import { getLinks, addLink, toggleLink, updateLinkCountries, deleteLink, getSettings, updateSettings } from '../lib/db.js';
-import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
+import { getContrastingTextColor, createShade, createTint, getGradientColors, createReallyDarkShade } from '../lib/colors.js';
 
 async function adminRoutes(fastify, options) {
   // GET /admin - Display admin dashboard
   fastify.get('/admin', async (request, reply) => {
     const links = getLinks();
     const settings = getSettings() || {};
+    const baseColor = settings.container_color || '#f0f0f0';
+    const gradient = getGradientColors(baseColor);
+
     const theme = {
-      containerColor: settings.container_color || '#f0f0f0',
+        containerGradient: `linear-gradient(to bottom, ${gradient.shade}, ${gradient.base}, ${gradient.tint})`,
+        backgroundGradient: `linear-gradient(to bottom, ${createShade(gradient.shade)}, ${gradient.shade}, ${gradient.base})`,
+        textColor: createReallyDarkShade(baseColor),
+        linkColor: createTint(baseColor),
+        linkTextColor: getContrastingTextColor(createTint(baseColor)),
     };
-    theme.backgroundColor = createShade(theme.containerColor);
-    theme.textColor = getContrastingTextColor(theme.backgroundColor);
-    theme.linkColor = createTint(theme.containerColor);
-    theme.linkTextColor = getContrastingTextColor(theme.linkColor);
 
     return reply.view('admin', { links: links, settings: settings, theme: theme });
   });
@@ -25,13 +28,15 @@ async function adminRoutes(fastify, options) {
     if (request.headers['hx-request']) {
       const links = getLinks();
       const settings = getSettings();
+      const baseColor = settings.container_color || '#f0f0f0';
+      const gradient = getGradientColors(baseColor);
       const theme = {
-        containerColor: settings.container_color || '#f0f0f0',
+        containerGradient: `linear-gradient(to bottom, ${gradient.shade}, ${gradient.base}, ${gradient.tint})`,
+        backgroundGradient: `linear-gradient(to bottom, ${createShade(gradient.shade)}, ${gradient.shade}, ${gradient.base})`,
+        textColor: createReallyDarkShade(baseColor),
+        linkColor: createTint(baseColor),
+        linkTextColor: getContrastingTextColor(createTint(baseColor)),
       };
-      theme.backgroundColor = createShade(theme.containerColor);
-      theme.textColor = getContrastingTextColor(theme.backgroundColor);
-      theme.linkColor = createTint(theme.containerColor);
-      theme.linkTextColor = getContrastingTextColor(theme.linkColor);
       return reply.view('admin', { links: links, settings: settings, theme: theme });
     }
 
