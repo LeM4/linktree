@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import ejs from 'ejs';
 import fastifyView from '@fastify/view';
+import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import publicRoutes from './routes/public.js';
 
@@ -10,6 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = fastify({ logger: true });
+
+// Register cookie plugin
+app.register(fastifyCookie);
 
 // Register static file server
 app.register(fastifyStatic, {

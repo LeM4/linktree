@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Links</title>
     <link rel="stylesheet" href="/public/styles.css">
+    <script defer src="https://unpkg.com/alpinejs@3.13.5"></script>
 </head>
-<body class="bg-gray-100">
-    <div class="container mx-auto max-w-lg text-center p-4">
+<body class="bg-gray-100" x-data="{ showPopup: <%= showCountryPopup %> }">
+    <div class="container mx-auto max-w-lg text-center p-4" :class="{ 'filter blur-sm': showPopup }">
         <img src="https://via.placeholder.com/150" alt="Profile Picture" class="rounded-full mx-auto h-24 w-24">
         <h1 class="text-2xl font-bold mt-4">My Awesome Linktree</h1>
         <p class="text-gray-600 mb-8">Welcome to my page!</p>
@@ -16,6 +17,19 @@
             <% links.forEach(link => { %>
                 <%- include('partials/link-card', {link: link}) %>
             <% }); %>
+        </div>
+    </div>
+
+    <!-- Country Selection Popup -->
+    <div x-show="showPopup"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         x-cloak>
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full">
+            <h2 class="text-2xl font-bold mb-4 text-center">Select Your Country</h2>
+            <p class="text-gray-600 mb-6 text-center">We couldn't detect your country. Please select it to see available links.</p>
+            
+            <%- include('partials/country-selector', { countries: countries }) %>
+
         </div>
     </div>
 </body>
