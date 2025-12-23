@@ -1,20 +1,83 @@
 <!-- views/partials/country-selector.ejs -->
-<div x-data="{ 
-        search: '', 
-        countries: window.countriesData,
-        get filteredCountries() {
-            return this.countries.filter(
-                c => c.name.toLowerCase().includes(this.search.toLowerCase())
-            )
-        }
-     }">
-    <h3 class="text-xl font-semibold">All Countries</h3>
-    <input type="text" x-model="search" placeholder="Search for a country..." class="p-3 border border-gray-300 rounded-md w-full mb-2">
-    <div class="h-60 overflow-y-auto border border-gray-300 rounded-md p-2">
-        <ul>
-            <template x-for="country in filteredCountries" :key="country.code">
-                <li @click="console.log(country.code)" class="p-1 hover:bg-blue-100 cursor-pointer rounded" x-text="country.name + ' (' + country.code + ')'"></li>
-            </template>
-        </ul>
+<form action="/select-country" method="POST"
+      x-data="{
+          // --- Component State ---
+          open: false,
+          search: '',
+          countries: window.countriesData,
+          selected: { code: '', name: '' },
+          hint: '',
+
+          // --- Computed Properties ---
+          // Filters the list of countries based on the search input.
+          filteredCountries() {
+              if (!this.search) return [];
+              return this.countries.filter(c => c.name.toLowerCase().startsWith(this.search.toLowerCase()));
+          },
+          
+          // --- Event Handlers & Methods ---
+          // Updates the ghost hint when the search input changes.
+          updateHint() {
+              if (!this.search) {
+                  this.hint = '';
+                  return;
+              }
+              const firstMatch = this.filteredCountries()[0];
+              if (firstMatch) {
+                  this.hint = this.search + firstMatch.name.substring(this.search.length);
+              } else {
+                  this.hint = '';
+              }
+          },
+          // Completes the search input with the current hint.
+          complete() {
+              const firstMatch = this.filteredCountries()[0];
+              if (firstMatch) {
+                  this.search = firstMatch.name;
+                  this.selected = firstMatch;
+                  this.updateHint();
+              }
+          },
+          // Selects a country from the list.
+          selectCountry(country) {
+              this.selected = country;
+              this.search = country.name;
+              this.open = false;
+          }
+      }"
+      class="flex flex-col space-y-4">
+
+    <div class="relative" @click.away="open = false">
+        <!-- The main input group with ghost hint -->
+        <div class="relative">
+            <!-- Ghost hint input (background) -->
+            <input type="text" :value="hint" class="absolute inset-0 p-3 bg-transparent text-gray-400 pointer-events-none" readonly>
+            <!-- User input (foreground) -->
+            <input type="text"
+                   x-model="search"
+                   @input="updateHint"
+                   @focus="open = true"
+                   @keydown.enter.prevent="complete"
+                   @keydown.tab.prevent="complete"
+                   placeholder="Search for a country..."
+                   class="relative p-3 border border-gray-300 rounded-md w-full bg-transparent">
+        </div>
+        <input type="hidden" name="country" x-model="selected.code">
+
+        <!-- The dropdown list -->
+        <div x-show="open" class="absolute z-10 w-full bg-white border mt-1 rounded-md shadow-lg max-h-60 overflow-y-auto">
+            <ul>
+                <template x-for="country in filteredCountries()" :key="country.code">
+                    <li @click="selectCountry(country)" class="p-2 hover:bg-blue-100 cursor-pointer" x-text="country.name"></li>
+                </template>
+            </ul>
+        </div>
     </div>
-</div>
+
+    <button type="submit"
+            class="bg-blue-500 text-white p-3 rounded-md w-full font-semibold"
+            :class="{ 'opacity-50 cursor-not-allowed': !selected.code }"
+            :disabled="!selected.code">
+        Confirm
+    </button>
+</form>
