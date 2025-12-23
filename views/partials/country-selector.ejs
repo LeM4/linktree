@@ -9,9 +9,9 @@
           hint: '',
 
           // --- Computed Properties ---
-          // Filters the list of countries based on the search input.
+          // Filters the list of countries based on the search input. If the search is empty, it returns all countries.
           filteredCountries() {
-              if (!this.search) return [];
+              if (!this.search) return this.countries;
               return this.countries.filter(c => c.name.toLowerCase().startsWith(this.search.toLowerCase()));
           },
           
@@ -29,13 +29,14 @@
                   this.hint = '';
               }
           },
-          // Completes the search input with the current hint.
+          // Completes the search input with the current hint and closes the dropdown.
           complete() {
               const firstMatch = this.filteredCountries()[0];
               if (firstMatch) {
                   this.search = firstMatch.name;
                   this.selected = firstMatch;
                   this.updateHint();
+                  this.open = false; // Close the dropdown after completion
               }
           },
           // Selects a country from the list.
