@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Links</title>
     <link rel="stylesheet" href="/public/styles.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
     <style>
         :root {
             --background-gradient: <%= theme.backgroundGradient %>;
@@ -25,13 +26,19 @@
     <div id="linktree-container" 
          class="w-full h-full flex flex-col items-center justify-start" 
          :class="{ 'filter blur-sm': showPopup }">
-        <div class="w-full max-w-xl rounded-3xl p-8" 
+        <div class="w-full max-w-xl rounded-3xl p-8 shadow-lg" 
              style="aspect-ratio: 9 / 19.5; background: var(--container-gradient);">
             
             <div class="flex flex-col items-center text-center">
-                <img src="https://via.placeholder.com/150" alt="Profile Picture" class="rounded-full mx-auto h-24 w-24">
-                <h1 class="text-2xl font-bold mt-4">My Awesome Linktree</h1>
-                <p class="mb-8" style="color: <%= theme.textColor %>99;">Welcome to my page!</p>
+                <img src="<%= settings.profile_pic_url %>" alt="Profile Picture" class="rounded-full mx-auto h-24 w-24">
+                <h1 class="text-2xl font-bold mt-4"><%= settings.username %></h1>
+                <p class="mb-8 max-w-xs" style="color: <%= theme.textColor %>99;"><%= settings.bio %></p>
+            </div>
+
+            <div class="flex justify-center space-x-4 mb-8">
+                <% iconLinks.forEach(iconLink => { %>
+                    <a href="<%= iconLink.url %>" target="_blank" class="w-10 h-10 hover:scale-110 transition-transform" style="color: var(--text-color);"><%- iconLink.svg_code %></a>
+                <% }); %>
             </div>
 
             <div id="links" class="flex flex-col space-y-4">

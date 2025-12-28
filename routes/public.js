@@ -1,4 +1,4 @@
-import { getVisibleLinks, getSettings } from '../lib/db.js';
+import { getVisibleLinks, getSettings, getIconLinks } from '../lib/db.js';
 import { getCountry } from '../lib/geo.js';
 import { countries as countryList } from 'countries-list';
 import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
@@ -32,12 +32,12 @@ async function publicRoutes(fastify, options) {
     // User adjustable factors (0.0 to 1.0)
     const BG_SHADE_FACTOR = 0.3;          // 30% shade for background
     const LINK_TINT_FACTOR = 0.9;         // 90% tint for links
-    const TEXT_SHADE_FACTOR = 0.8;        // 80% shade for text
-    const GRADIENT_SHADE_FACTOR = 0.05;   // 5% shade for gradient
-    const GRADIENT_TINT_FACTOR = 0.01;    // 1% tint for gradient
+    const TEXT_SHADE_FACTOR = 0.9;        // 90% shade for text
+    const GRADIENT_SHADE_FACTOR = 0.3;   // 30% shade for gradient
+    const GRADIENT_TINT_FACTOR = 0.2;    // 20% tint for gradient
 
     // Calculate container gradient colors
-    const containerShade = createShadfe(baseColor, GRADIENT_SHADE_FACTOR);
+    const containerShade = createShade(baseColor, GRADIENT_SHADE_FACTOR);
     const containerTint = createTint(baseColor, GRADIENT_TINT_FACTOR);
     
     // Calculate background gradient colors
@@ -55,8 +55,10 @@ async function publicRoutes(fastify, options) {
       linkTextColor: textColor, // Same as main text color
     };
 
+    const iconLinks = getIconLinks();
+
     // 6. Render the main page
-    return reply.view('linktree', { links, showCountryPopup, countries, theme });
+    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme });
   });
 
   // This route handles the country selection from the popup.

@@ -1,5 +1,32 @@
-<a href="<%= link.url %>" target="_blank" rel="noopener noreferrer" 
-   style="background-color: var(--link-color); color: var(--link-text-color);"
-   class="block p-4 rounded-lg shadow-md hover:opacity-90 transition-opacity">
-    <div class="font-bold text-lg"><%= link.title %></div>
-</a>
+<div x-data="{ showWarning: false }">
+    <% if (link.is_18_plus) { %>
+        <!-- Initial view: looks like a normal link -->
+        <a href="#" 
+           @click.prevent="showWarning = true"
+           x-show="!showWarning"
+           style="background-color: var(--link-color); color: var(--link-text-color);"
+           class="block p-4 rounded-2xl shadow-md hover:opacity-90 transition-opacity text-center">
+            <div class="font-normal text-lg"><%= link.title %></div>
+        </a>
+
+        <!-- Warning view: appears after first click -->
+        <a :href="'<%= link.url %>'"
+           x-show="showWarning"
+           target="_blank" rel="noopener noreferrer"
+           style="background-color: var(--link-color); color: var(--link-text-color);"
+           class="block p-4 rounded-2xl shadow-md hover:opacity-90 transition-opacity cursor-pointer text-center">
+            <div class="flex items-center justify-center space-x-2">
+                <span class="material-symbols-outlined">visibility_off</span>
+                <div class="font-normal text-lg">18+ Sensitive Content</div>
+            </div>
+            <p class="text-sm text-center mt-2">This link may contain adult content.<br><u>Click to continue.</u></p>
+        </a>
+    <% } else { %>
+        <!-- Normal link for non-18+ content -->
+        <a href="<%= link.url %>" target="_blank" rel="noopener noreferrer" 
+           style="background-color: var(--link-color); color: var(--link-text-color);"
+           class="block p-4 rounded-2xl shadow-md hover:opacity-90 transition-opacity text-center">
+            <div class="font-normal text-lg"><%= link.title %></div>
+        </a>
+    <% } %>
+</div>
