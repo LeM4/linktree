@@ -1,7 +1,7 @@
 import { getVisibleLinks, getSettings } from '../lib/db.js';
 import { getCountry } from '../lib/geo.js';
 import { countries as countryList } from 'countries-list';
-import { getContrastingTextColor, createShade, createTint, getGradientColors, createReallyDarkShade } from '../lib/colors.js';
+import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
 
 async function publicRoutes(fastify, options) {
   // The main public route that displays the links.
@@ -28,17 +28,34 @@ async function publicRoutes(fastify, options) {
     // 5. Get theme settings and calculate colors
     const settings = getSettings() || {};
     const baseColor = settings.container_color || '#f0f0f0';
-    const gradient = getGradientColors(baseColor);
+
+    // User adjustable factors (0.0 to 1.0)
+    const BG_SHADE_FACTOR = 0.3;          // 30% shade for background
+    const LINK_TINT_FACTOR = 0.9;         // 90% tint for links
+    const TEXT_SHADE_FACTOR = 0.8;        // 80% shade for text
+    const GRADIENT_SHADE_FACTOR = 0.05;   // 5% shade for gradient
+    const GRADIENT_TINT_FACTOR = 0.01;    // 1% tint for gradient
+
+    // Calculate container gradient colors
+    const containerShade = createShadfe(baseColor, GRADIENT_SHADE_FACTOR);
+    const containerTint = createTint(baseColor, GRADIENT_TINT_FACTOR);
+    
+    // Calculate background gradient colors
+    const backgroundBaseColor = createShade(baseColor, BG_SHADE_FACTOR);
+    const backgroundShade = createShade(backgroundBaseColor, GRADIENT_SHADE_FACTOR);
+    const backgroundTint = createTint(backgroundBaseColor, GRADIENT_TINT_FACTOR);
+    
+    const textColor = createShade(baseColor, TEXT_SHADE_FACTOR);
 
     const theme = {
-      containerGradient: `linear-gradient(to bottom, ${gradient.shade}, ${gradient.base}, ${gradient.tint})`,
-      backgroundGradient: `linear-gradient(to bottom, ${createShade(gradient.shade)}, ${gradient.shade}, ${gradient.base})`,
-      textColor: createReallyDarkShade(baseColor), // Text color based on the base color
-      linkColor: createTint(baseColor),
-      linkTextColor: getContrastingTextColor(createTint(baseColor)),
+      containerGradient: `linear-gradient(to bottom, ${containerShade}, ${baseColor}, ${containerTint})`,
+      backgroundGradient: `linear-gradient(to bottom, ${backgroundShade}, ${backgroundBaseColor}, ${backgroundTint})`,
+      textColor: textColor,
+      linkColor: createTint(baseColor, LINK_TINT_FACTOR),
+      linkTextColor: textColor, // Same as main text color
     };
 
-    // 6. Render the main page, passing the links, flags for the popup, and theme colors.
+    // 6. Render the main page
     return reply.view('linktree', { links, showCountryPopup, countries, theme });
   });
 
