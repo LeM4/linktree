@@ -76,7 +76,92 @@ bun run start:admin
 
 ## Building CSS
 
-The CSS is automatically built in development mode. If you need to build the CSS manually (e.g., for deployment), there is no specific build command in the `package.json`, but you can use the Tailwind CSS CLI directly:
+The CSS is automatically built in development mode. If you need to build the CSS manually (e.g., for deployment), use the following command:
 ```bash
-bunx @tailwindcss/cli -i ./styles/input.css -o ./public/styles.css --minify
+bun run build:css
 ```
+
+## Docker
+
+This application includes a simple `Dockerfile` that copies your local project files into an image.
+
+### Prerequisites
+
+Before building the Docker image, you **must** ensure you have:
+1. Installed the project dependencies locally:
+    ```bash
+    bun install
+    ```
+2. Built the production CSS file locally:
+    ```bash
+    bun run build:css
+    ```
+    This will generate `public/styles.css`, which is then copied into the Docker image.
+
+### Building the Image
+
+To build the Docker image, run the following command in the project root:
+```bash
+docker build -t linktree-app .
+```
+
+### Running the Container Locally
+
+To run the application as a Docker container, you need to mount a volume for the database to ensure data persistence.
+
+1.  **Create a directory on your host machine to store the database:**
+    ```bash
+    mkdir -p /path/to/your/db
+    ```
+
+2.  **Run the Docker container:**
+    ```bash
+    docker run -d \
+      -p 3000:3000 \
+      -p 3001:3001 \
+      -v /path/to/your/db:/usr/src/app/db \
+      --name my-linktree-app \
+      linktree-app
+    ```
+
+*   The public Linktree page will be available at `http://localhost:3000`.
+*   The admin dashboard will be available at `http://localhost:3001/admin`.
+
+On the first run, the entrypoint script will automatically initialize the database and seed it with data in the volume you mounted. On subsequent runs, it will use the existing database.
+
+### Deployment to GitHub Container Registry (GHCR)
+
+1.  **Log in to GHCR:**
+    ```bash
+    echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+    ```
+    (Replace `YOUR_GITHUB_TOKEN` with a GitHub Personal Access Token that has `package:write` permissions, and `YOUR_GITHUB_USERNAME` with your GitHub username.)
+
+2.  **Tag the Docker image:**
+    ```bash
+    docker tag linktree-app ghcr.io/YOUR_GITHUB_USERNAME/linktree-app:v1
+    ```
+    (Replace `YOUR_GITHUB_USERNAME` with your GitHub username or organization name, and `v1` with your desired tag.)
+
+3.  **Push the image to GHCR:**
+    ```bash
+    docker push ghcr.io/YOUR_GITHUB_USERNAME/linktree-app:v1
+    ```
+
+4.  **Running the image on a server:**
+    Once you have SSH'd into your server, you can pull and run the image:
+    ```bash
+    # Pull the image from GHCR
+    # You might need to log in to GHCR on your server as well if it's a private repo
+    # echo YOUR_GITHUB_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+    docker pull ghcr.io/YOUR_GITHUB_USERNAME/linktree-app:v1
+
+    # Run the container
+    docker run -d \
+      -p 80:3000 \
+      -p 3001:3001 \
+      -v /path/to/your/db:/usr/src/app/db \
+      --name my-linktree-app \
+      ghcr.io/YOUR_GITHUB_USERNAME/linktree-app:v1
+    ```
+    (Note: This example maps port 80 to the public-facing app on port 3000. You may need to adjust the ports based on your server's configuration.)

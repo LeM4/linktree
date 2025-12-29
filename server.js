@@ -22,7 +22,6 @@ app.register(fastifyFormbody);
 // Register static file server
 app.register(fastifyStatic, {
   root: path.join(__dirname, 'public'),
-  prefix: '/public/',
 });
 
 // Register the view engine
@@ -36,10 +35,20 @@ app.register(fastifyView, {
 // Register routes
 app.register(publicRoutes);
 
+// Manually serve styles.css to debug
+app.get('/styles.css', (req, reply) => {
+    const fs = require('fs');
+    const css = fs.readFileSync(path.join(__dirname, 'public', 'styles.css'), 'utf8');
+    reply.header('Content-Type', 'text/css').send(css);
+});
+
 // Start the server
 const start = async () => {
   try {
-    await app.listen({ port: 3000 });
+    await app.listen({
+      port: 3000,
+      host: process.env.HOST ?? '0.0.0.0'
+    });
   } catch (err) {
     app.log.error(err);
     process.exit(1);

@@ -22,7 +22,9 @@
     "dev:server": "bun --watch server.js",
     "dev:admin": "bun --watch admin-server.js",
     "dev:css": "bunx @tailwindcss/cli -i ./styles/input.css -o ./public/styles.css --watch",
-    "dev": "concurrently \"bun run dev:server\" \"bun run dev:admin\" \"bun run dev:css\""
+    "build:css": "bunx postcss ./styles/input.css -o ./public/styles.css --config ./postcss.config.js --minify",
+    "dev": "concurrently \"bun run dev:server\" \"bun run dev:admin\" \"bun run dev:css\"",
+    "start:prod": "concurrently \"bun run start\" \"bun run start:admin\""
   },
   "type": "module",
   "devDependencies": {
