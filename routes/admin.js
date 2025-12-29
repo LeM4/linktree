@@ -1,7 +1,26 @@
 import { getLinks, addLink, toggleLink, updateLinkCountries, deleteLink, getSettings, updateSettings, toggleLink18Plus, getIconLinks, addIconLink, deleteIconLink } from '../lib/db.js';
 import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
+import { exportDb, importDb } from '../lib/import_export.js';
 
 async function adminRoutes(fastify, options) {
+  // GET /admin/export - Export database content as JSON
+  fastify.get('/admin/export', async (request, reply) => {
+    const dbContent = exportDb();
+    return reply.send(dbContent);
+  });
+
+  // POST /admin/import - Import database content from JSON
+  fastify.post('/admin/import', async (request, reply) => {
+    const { dbContent } = request.body;
+    try {
+      importDb(dbContent);
+    } catch (e) {
+      console.error("Import failed:", e);
+      // You might want to add some error feedback to the user here
+    }
+    return reply.redirect('/admin');
+  });
+  
   // GET /admin - Display admin dashboard
   fastify.get('/admin', async (request, reply) => {
     const links = getLinks();
@@ -34,15 +53,15 @@ async function adminRoutes(fastify, options) {
       linkColor: createTint(baseColor, LINK_TINT_FACTOR),
       linkTextColor: textColor, // Same as main text color
     };
-
+    
     return reply.view('admin', { links: links, iconLinks: iconLinks, settings: settings, theme: theme });
   });
 
   // POST /admin/profile - Update profile settings
   fastify.post('/admin/profile', async (request, reply) => {
-    const { username, profile_pic_url, bio } = request.body;
+    const { username, profile_pic_url, bio, page_title } = request.body;
     const settings = getSettings() || {};
-    updateSettings(settings.container_color, username, profile_pic_url, bio);
+    updateSettings(settings.container_color, username, profile_pic_url, bio, page_title);
     return reply.redirect('/admin');
   });
 
@@ -50,7 +69,7 @@ async function adminRoutes(fastify, options) {
   fastify.post('/admin/settings', async (request, reply) => {
     const { containerColor } = request.body;
     const settings = getSettings() || {};
-    updateSettings(containerColor, settings.username, settings.profile_pic_url, settings.bio);
+    updateSettings(containerColor, settings.username, settings.profile_pic_url, settings.bio, settings.page_title);
     return reply.redirect('/admin');
   });
   

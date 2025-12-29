@@ -35,11 +35,16 @@ app.register(fastifyView, {
 // Register admin routes
 app.register(adminRoutes);
 
-// Manually serve styles.css to debug
+// Manually serve styles.css
 app.get('/styles.css', (req, reply) => {
     const fs = require('fs');
     const css = fs.readFileSync(path.join(__dirname, 'public', 'styles.css'), 'utf8');
     reply.header('Content-Type', 'text/css').send(css);
+});
+
+// Serve favicon manually
+app.get('/favicon.png', (req, reply) => {
+    reply.sendFile('favicon.png');
 });
 
 // Start the server
