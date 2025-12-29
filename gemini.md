@@ -27,8 +27,8 @@ This project intentionally avoids client-side API fetching and SPA architecture.
 - **EJS** (server-side rendering)
 
 ### Styling
-- **Tailwind CSS**
-- Precompiled CSS (no runtime Tailwind)
+- **Tailwind v4 CSS**
+- Precompiled v4 CSS (no runtime Tailwind)
 
 ### Frontend Interactivity
 - **htmx** → server interactions, partial HTML updates
