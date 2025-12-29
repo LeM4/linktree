@@ -58,7 +58,7 @@ async function publicRoutes(fastify, options) {
     const iconLinks = getIconLinks();
 
     // 6. Render the main page
-    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme });
+    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme, country: country });
   });
 
   // This route handles the country selection from the popup.

@@ -7,6 +7,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyFormbody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
 import adminRoutes from './routes/admin.js';
+import analyticsRoutes from './routes/analytics.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,6 +35,7 @@ app.register(fastifyView, {
 
 // Register admin routes
 app.register(adminRoutes);
+app.register(analyticsRoutes);
 
 // Manually serve styles.css
 app.get('/styles.css', (req, reply) => {

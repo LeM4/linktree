@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>linktree - Analytics</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="icon" href="/favicon.png">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<body class="bg-gray-100 p-4">
+    <div class="container mx-auto max-w-4xl bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-6">Analytics</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <div class="bg-blue-100 p-4 rounded-lg text-center">
+                <h2 class="text-lg font-semibold">Total Visits</h2>
+                <p class="text-3xl font-bold"><%= analyticsData.totalVisits %></p>
+            </div>
+            <div class="bg-green-100 p-4 rounded-lg text-center">
+                <h2 class="text-lg font-semibold">Unique Visitors</h2>
+                <p class="text-3xl font-bold"><%= analyticsData.uniqueVisitors %></p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Top Links</h2>
+                <ul>
+                    <% analyticsData.topLinks.slice(0, 3).forEach(link => { %>
+                        <li class="flex justify-between py-1 border-b">
+                            <span><%= link.link_url %></span>
+                            <span class="font-bold"><%= link.count %></span>
+                        </li>
+                    <% }); %>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Top Countries</h2>
+                <ul>
+                    <% analyticsData.topCountries.slice(0, 3).forEach(country => { %>
+                        <li class="flex justify-between py-1 border-b">
+                            <span><%= country.country %></span>
+                            <span class="font-bold"><%= country.count %></span>
+                        </li>
+                    <% }); %>
+                </ul>
+            </div>
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Top Referrers</h2>
+                <ul>
+                    <% analyticsData.topReferrers.slice(0, 3).forEach(referrer => { %>
+                        <li class="flex justify-between py-1 border-b">
+                            <span><%= referrer.referrer || 'Direct' %></span>
+                            <span class="font-bold"><%= referrer.count %></span>
+                        </li>
+                    <% }); %>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 gap-8 mt-8">
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Visitations Over Time (Last 12 Hours)</h2>
+                <canvas id="visitations-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Top Links (Pie Chart)</h2>
+                <canvas id="top-links-pie-chart"></canvas>
+            </div>
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Top Countries (Pie Chart)</h2>
+                <canvas id="top-countries-pie-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-8 mt-8">
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Link Clicks by Country (Polar Chart)</h2>
+                <canvas id="polar-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const visitationsLast12Hours = <%- JSON.stringify(analyticsData.visitationsLast12Hours) %>;
+            const topLinksData = <%- JSON.stringify(analyticsData.topLinks) %>;
+            const topCountriesData = <%- JSON.stringify(analyticsData.topCountries) %>;
+            const polarChartData = <%- JSON.stringify(analyticsData.polarChartData) %>;
+            const topCountriesByHour = <%- JSON.stringify(analyticsData.topCountriesByHour) %>;
+
+            // Prepare data for the line chart
+            const now = new Date();
+            now.setHours(now.getHours() + 1); // Add 1 hour as requested
+            const labels = [];
+            const data = Array(13).fill(0);
+
+            for (let i = 12; i >= 0; i--) {
+                const date = new Date();
+                date.setHours(now.getHours() - i);
+                const hour = date.getHours();
+                labels.push(`${hour}:00`);
+
+                const visitData = visitationsLast12Hours.find(v => parseInt(v.hour) === hour);
+                if (visitData) {
+                    data[12 - i] = visitData.count;
+                }
+            }
+
+            const countryColors = ['rgb(255, 99, 132)', 'rgb(54, 162, 235)', 'rgb(255, 205, 86)'];
+            const countryDatasets = topCountriesByHour.map((countryData, i) => {
+                const countryHourlyData = Array(13).fill(0);
+                for (let j = 12; j >= 0; j--) {
+                    const date = new Date();
+                    date.setHours(now.getHours() - j);
+                    const hour = date.getHours();
+                    const visitData = countryData.data.find(v => parseInt(v.hour) === hour);
+                    if (visitData) {
+                        countryHourlyData[12 - j] = visitData.count;
+                    }
+                }
+                return {
+                    label: countryData.country,
+                    data: countryHourlyData,
+                    fill: false,
+                    borderColor: countryColors[i % countryColors.length],
+                    borderDash: [5, 5],
+                    tension: 0.1
+                };
+            });
+
+            // Generate a gradient of grayish pink colors
+            const generateGradientColors = (num, baseHue = 340, saturation = 50, startLightness = 75, endLightness = 30) => {
+                const colors = [];
+                const lightnessStep = (endLightness - startLightness) / (num - 1);
+                for (let i = 0; i < num; i++) {
+                    colors.push(`hsl(${baseHue}, ${saturation}%, ${startLightness + (i * lightnessStep)}%)`);
+                }
+                return colors;
+            };
+
+            const linkColorMap = {};
+            const uniqueLinks = [...new Set(polarChartData.map(item => item.link))];
+            const baseColors = generateGradientColors(uniqueLinks.length, 340, 50, 80, 40);
+            uniqueLinks.forEach((link, i) => {
+                linkColorMap[link] = baseColors[i];
+            });
+
+            new Chart(document.getElementById('visitations-chart'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Visits per Hour',
+                        data: data,
+                        fill: true,
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }, ...countryDatasets]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Pie Chart for Top Links
+            new Chart(document.getElementById('top-links-pie-chart'), {
+                type: 'pie',
+                data: {
+                    labels: topLinksData.map(row => row.link_url),
+                    datasets: [{
+                        data: topLinksData.map(row => row.count),
+                        backgroundColor: generateGradientColors(topLinksData.length, 200, 50, 80, 40) // A different hue for this chart
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+
+            // Pie Chart for Top Countries
+            new Chart(document.getElementById('top-countries-pie-chart'), {
+                type: 'pie',
+                data: {
+                    labels: topCountriesData.map(row => row.country),
+                    datasets: [{
+                        data: topCountriesData.map(row => row.count),
+                        backgroundColor: generateGradientColors(topCountriesData.length, 100, 50, 80, 40) // A different hue for this chart
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+
+            // Polar Area Chart for Link Clicks by Country
+            new Chart(document.getElementById('polar-chart'), {
+                type: 'polarArea',
+                data: {
+                    labels: polarChartData.map(d => d.label),
+                    datasets: [{
+                        data: polarChartData.map(d => d.count),
+                        backgroundColor: polarChartData.map(d => linkColorMap[d.link])
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        });
+    </script>
+</body>
+</html>

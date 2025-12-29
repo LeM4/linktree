@@ -1,7 +1,7 @@
 # Linktree Website
 
 ## Project Description
-This project implements a lightweight, fast Linktree-style website suitable for Instagram/social media bios. It is server-rendered, extremely fast on mobile/in-app browsers, and features geo-blocking for links.
+This project implements a lightweight, fast Linktree-style website suitable for Instagram/social media bios. It is server-rendered, extremely fast on mobile/in-app browsers, and features geo-blocking for links. It also includes an analytics dashboard for tracking user visits and link clicks.
 
 ## Features
 *   **Server-rendered:** Ensures fast initial load times and no client-side API fetching for public pages.
@@ -9,13 +9,16 @@ This project implements a lightweight, fast Linktree-style website suitable for 
 *   **Lightweight Admin Dashboard:** A simple private dashboard for managing links, built with htmx and Alpine.js.
 *   **No Heavy Frameworks:** Avoids complex frontend frameworks for maximum performance.
 *   **Modern Tech Stack:** Utilizes Bun, Fastify, EJS, and Tailwind CSS v4.
+*   **Analytics Dashboard:** Tracks total visits, unique visitors, visitations over time, top links, top countries, and top referrers with interactive charts (line, pie, polar area).
+*   **Import/Export Database:** A utility to export and import database content as a JSON string, providing a way to manage data across schema changes.
 
 ## Technologies Used
 *   **Backend:** Bun (runtime), Fastify (web framework)
 *   **Templating:** EJS (server-side rendering)
 *   **Styling:** Tailwind CSS v4
 *   **Frontend Interactivity:** htmx (server interactions), Alpine.js (minimal UI state)
-*   **Database:** SQLite
+*   **Analytics:** FingerprintJS (for anonymous user fingerprinting), Chart.js (for data visualization)
+*   **Database:** SQLite (main and analytics databases)
 *   **Geo-blocking:** Cloudflare-provided `CF-IPCountry` header
 
 ## Installation
@@ -35,12 +38,13 @@ This project implements a lightweight, fast Linktree-style website suitable for 
     bun install
     ```
 
-4.  **Initialize the database:** This will create the `database.sqlite` file and the `links` table.
+4.  **Initialize the databases:** This will create the `database.sqlite` and `analytics.sqlite` files and their respective tables.
     ```bash
     bun run init-db.js
+    bun run init-analytics-db.js
     ```
 
-5.  **Seed the database (optional):** This will add some sample links to your database.
+5.  **Seed the database (optional):** This will add some sample links to your main database.
     ```bash
     bun run seed.js
     ```
@@ -73,6 +77,7 @@ bun run start:admin
 
 *   **Public Linktree Page:** `http://localhost:3000/`
 *   **Admin Dashboard:** `http://localhost:3001/admin`
+*   **Analytics Dashboard:** `http://localhost:3001/analytics`
 
 ## Building CSS
 
@@ -97,6 +102,10 @@ Before building the Docker image, you **must** ensure you have:
     bun run build:css
     ```
     This will generate `public/styles.css`, which is then copied into the Docker image.
+3. Placed static assets in the `public` folder:
+    *   `public/styles.css`
+    *   `public/fp.umd.min.js` (FingerprintJS UMD build)
+    *   `public/favicon.png`
 
 ### Building the Image
 
