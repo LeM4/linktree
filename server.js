@@ -12,7 +12,7 @@ import { findOrCreateUser, addVisitation, addLinkClick } from './lib/analytics_d
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = fastify({ logger: true });
+const app = fastify({ logger: true, trustProxy: true });
 
 // Register cookie plugin
 app.register(fastifyCookie);
@@ -22,8 +22,7 @@ app.register(fastifyFormbody);
 
 // Register static file server
 app.register(fastifyStatic, {
-  root: path.join(__dirname, 'public'),
-  prefix: '/public/'
+  root: path.join(__dirname, 'public')
 });
 
 // Register the view engine
@@ -74,7 +73,9 @@ app.get('/favicon.png', (req, reply) => {
 
 // Serve fingerprintJS manually
 app.get('/fp.umd.min.js', (req, reply) => {
-    reply.sendFile('fp.umd.min.js');
+    const fs = require('fs');
+    const js = fs.readFileSync(path.join(__dirname, 'public', 'fp.umd.min.js'), 'utf8');
+    reply.header('Content-Type', 'application/javascript').send(js);
 });
 
 // Start the server

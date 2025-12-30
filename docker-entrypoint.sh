@@ -1,6 +1,9 @@
 #!/bin/sh
 # docker-entrypoint.sh
 
+# Set the timezone, defaulting to Europe/Vienna if not set
+export TZ=${TIMEZONE:-Europe/Vienna}
+
 # The directory where the database will be stored.
 # This directory is expected to be mounted as a volume.
 DB_DIR="/usr/src/app/db"
@@ -32,10 +35,7 @@ if [ ! -f "$DB_ANALYTICS_FILE" ]; then
     # Initialize the database schema
     bun run init-analytics-db.js
 
-    # Seed the database with initial data
-    bun run seed.js
-
-    echo "Analytics database initialized and seeded."
+    echo "Analytics database initialized."
 else
     echo "Analytics database found. Skipping initialization."
 fi

@@ -12,7 +12,7 @@ import analyticsRoutes from './routes/analytics.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = fastify({ logger: true });
+const app = fastify({ logger: true, trustProxy: true });
 
 // Register cookie plugin
 app.register(fastifyCookie);
