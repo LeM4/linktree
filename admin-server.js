@@ -5,7 +5,6 @@ import ejs from 'ejs';
 import fastifyView from '@fastify/view';
 import fastifyCookie from '@fastify/cookie';
 import fastifyFormbody from '@fastify/formbody';
-import fastifyStatic from '@fastify/static';
 import adminRoutes from './routes/admin.js';
 import analyticsRoutes from './routes/analytics.js';
 
@@ -19,11 +18,6 @@ app.register(fastifyCookie);
 
 // Register formbody plugin
 app.register(fastifyFormbody);
-
-// Register static file server
-app.register(fastifyStatic, {
-  root: path.join(__dirname, 'public'),
-});
 
 // Register the view engine
 app.register(fastifyView, {
@@ -46,7 +40,9 @@ app.get('/styles.css', (req, reply) => {
 
 // Serve favicon manually
 app.get('/favicon.png', (req, reply) => {
-    reply.sendFile('favicon.png');
+    const fs = require('fs');
+    const favicon = fs.readFileSync(path.join(__dirname, 'public', 'favicon.png'));
+    reply.header('Content-Type', 'image/png').send(favicon);
 });
 
 // Start the server
