@@ -22,13 +22,34 @@
             </div>
         </div>
 
+        <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4">Filters</h2>
+            <div class="flex flex-wrap gap-2">
+                <% if (filters.excludedLinks && filters.excludedLinks.length > 0) { %>
+                    <% filters.excludedLinks.forEach(link => { %>
+                        <a href="<%= removeFilter('excludedLinks', link) %>" class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm hover:line-through"><%= link %></a>
+                    <% }); %>
+                <% } %>
+                <% if (filters.excludedCountries && filters.excludedCountries.length > 0) { %>
+                    <% filters.excludedCountries.forEach(country => { %>
+                        <a href="<%= removeFilter('excludedCountries', country) %>" class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm hover:line-through"><%= country %></a>
+                    <% }); %>
+                <% } %>
+                <% if (filters.excludedReferrers && filters.excludedReferrers.length > 0) { %>
+                    <% filters.excludedReferrers.forEach(referrer => { %>
+                        <a href="<%= removeFilter('excludedReferrers', referrer) %>" class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-sm hover:line-through"><%= referrer || 'unknown' %></a>
+                    <% }); %>
+                <% } %>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-8">
             <div>
                 <h2 class="text-xl font-semibold mb-4">Top Links</h2>
                 <ul>
                     <% analyticsData.topLinks.slice(0, 3).forEach(link => { %>
                         <li class="flex justify-between py-1 border-b">
-                            <span><%= link.link_url %></span>
+                            <a href="<%= addFilter('excludedLinks', link.link_url) %>" class="hover:line-through"><%= link.link_url %></a>
                             <span class="font-bold"><%= link.count %></span>
                         </li>
                     <% }); %>
@@ -39,7 +60,7 @@
                 <ul>
                     <% analyticsData.topCountries.slice(0, 3).forEach(country => { %>
                         <li class="flex justify-between py-1 border-b">
-                            <span><%= country.country %></span>
+                            <a href="<%= addFilter('excludedCountries', country.country) %>" class="hover:line-through"><%= country.country %></a>
                             <span class="font-bold"><%= country.count %></span>
                         </li>
                     <% }); %>
@@ -48,9 +69,9 @@
             <div>
                 <h2 class="text-xl font-semibold mb-4">Top Referrers</h2>
                 <ul>
-                    <% analyticsData.topReferrers.slice(0, 3).forEach(referrer => { %>
+                    <% analyticsData.topReferrers.forEach(referrer => { %>
                         <li class="flex justify-between py-1 border-b">
-                            <span><%= referrer.referrer || 'Direct' %></span>
+                            <a href="<%= addFilter('excludedReferrers', referrer.referrer || 'unknown') %>" class="hover:line-through"><%= referrer.referrer || 'unknown' %></a>
                             <span class="font-bold"><%= referrer.count %></span>
                         </li>
                     <% }); %>
@@ -144,7 +165,7 @@
 
             const linkColorMap = {};
             const uniqueLinks = [...new Set(polarChartData.map(item => item.link))];
-            const baseColors = generateGradientColors(uniqueLinks.length, 340, 50, 80, 40);
+            const baseColors = generateGradientColors(uniqueLinks.length, 340, 50, 80, 40).reverse();
             uniqueLinks.forEach((link, i) => {
                 linkColorMap[link] = baseColors[i];
             });
@@ -178,11 +199,17 @@
                     labels: topLinksData.map(row => row.link_url),
                     datasets: [{
                         data: topLinksData.map(row => row.count),
-                        backgroundColor: generateGradientColors(topLinksData.length, 200, 50, 80, 40) // A different hue for this chart
+                        backgroundColor: generateGradientColors(topLinksData.length, 200, 50, 80, 40).reverse()
                     }]
                 },
                 options: {
-                    responsive: true
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            display: true
+                        }
+                    }
                 }
             });
 
@@ -193,11 +220,17 @@
                     labels: topCountriesData.map(row => row.country),
                     datasets: [{
                         data: topCountriesData.map(row => row.count),
-                        backgroundColor: generateGradientColors(topCountriesData.length, 100, 50, 80, 40) // A different hue for this chart
+                        backgroundColor: generateGradientColors(topCountriesData.length, 100, 50, 80, 40).reverse()
                     }]
                 },
                 options: {
-                    responsive: true
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            display: true
+                        }
+                    }
                 }
             });
 
@@ -212,7 +245,13 @@
                     }]
                 },
                 options: {
-                    responsive: true
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            display: true
+                        }
+                    }
                 }
             });
         });

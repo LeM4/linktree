@@ -7,6 +7,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyFormbody from '@fastify/formbody';
 import publicRoutes from './routes/public.js';
 import { findOrCreateUser, addVisitation, addLinkClick } from './lib/analytics_db.js';
+import { inferReferrerFromUserAgent } from './lib/user-agent-helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,9 +33,13 @@ app.register(publicRoutes);
 
 // Analytics tracking route
 app.post('/track', async (request, reply) => {
-    const { fingerprint, country, referrer, userId } = request.body;
+    let { fingerprint, country, referrer, userId } = request.body;
+    const userAgent = request.headers['user-agent'];
+
+    referrer = inferReferrerFromUserAgent(userAgent, referrer);
+
     const user = findOrCreateUser(fingerprint, userId);
-    const visitationId = addVisitation(user.id, country, referrer);
+    const visitationId = addVisitation(user.id, country, referrer, userAgent);
     // Store visitationId in a cookie for subsequent link click tracking
     reply.setCookie('visitationId', visitationId, { path: '/' });
     return { ok: true, userId: user.id };
