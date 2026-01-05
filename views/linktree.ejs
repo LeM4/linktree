@@ -15,6 +15,7 @@
             --link-color: <%= theme.linkColor %>;
             --link-text-color: <%= theme.linkTextColor %>;
         }
+        <%- themeContent.css %>
     </style>
     <script>
         window.countriesData = <%- JSON.stringify(countries) %>;
@@ -53,9 +54,11 @@
           }
         }
       ">
+
+    <div id="theme-background" class="absolute inset-0 w-full h-full z-[-1]"><%- themeContent.html %></div>
     
     <div id="linktree-container" 
-         class="w-full h-full flex flex-col items-center justify-start" 
+         class="w-full h-full flex flex-col items-center justify-start relative z-10" 
          :class="{ 'filter blur-sm': showPopup }">
         <div class="w-full max-w-xl rounded-3xl p-8 shadow-lg" 
              style="aspect-ratio: 9 / 19.5; background: var(--container-gradient);">
@@ -73,9 +76,9 @@
             </div>
 
             <div id="links" class="flex flex-col space-y-4">
-                <% links.forEach(link => { %>
-                    <%- include('partials/link-card', {link: link}) %>
-                <% }); %>
+                <% links.forEach(link => {
+                    %><%- include('partials/link-card', {link: link}) %><% 
+                }); %>
             </div>
         </div>
     </div>
@@ -92,5 +95,8 @@
 
         </div>
     </div>
+    <script>
+        <%- themeContent.js %>
+    </script>
 </body>
 </html>

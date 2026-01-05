@@ -1,0 +1,26 @@
+#theme-snowfall, #theme-snowfall * {
+	border: 0;
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+#theme-snowfall {
+	--hue: 223deg;
+	--primary50: hsl(var(--hue) 90% 95%);
+	--primary950: hsl(var(--hue) 90% 5%);
+	--gray450: hsl(var(--hue) 10% 55%);
+	--trans-dur: 0.3s;
+	color-scheme: light dark;
+}
+
+#theme-snowfall canvas {
+	display: block;
+	position: fixed;
+	top: 0;
+	left: 0;
+	touch-action: none;
+	-webkit-user-select: none;
+	user-select: none;
+	z-index: -1;
+}

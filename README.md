@@ -7,9 +7,11 @@ This project implements a lightweight, fast Linktree-style website suitable for 
 *   **Server-rendered:** Ensures fast initial load times and no client-side API fetching for public pages.
 *   **Geo-blocking:** Links are hidden based on the user's country using Cloudflare-provided headers.
 *   **Lightweight Admin Dashboard:** A simple private dashboard for managing links, built with htmx and Alpine.js.
+*   **Background Themes:** Dynamic background themes for the public page, configurable from the admin dashboard. Themes are composed of HTML, CSS, and JavaScript, and are loaded only when active for performance.
 *   **No Heavy Frameworks:** Avoids complex frontend frameworks for maximum performance.
-*   **Modern Tech Stack:** Utilizes Bun, Fastify, EJS, and Tailwind CSS v4.
 *   **Analytics Dashboard:** Tracks total visits, unique visitors, visitations over time, top links, top countries, and top referrers with interactive charts (line, pie, polar area).
+*   **Interactive Analytics Filtering:** Clickable elements in the analytics dashboard allow users to filter data by excluding specific links, countries, or referrers.
+*   **User-Agent Referrer Inference:** Infers referrers from User-Agent strings for social media platforms (e.g., TikTok) to improve analytics accuracy when a direct referrer is unavailable.
 *   **Import/Export Database:** A utility to export and import database content as a JSON string, providing a way to manage data across schema changes.
 
 ## Technologies Used
@@ -79,6 +81,31 @@ bun run start:admin
 *   **Admin Dashboard:** `http://localhost:3001/admin`
 *   **Analytics Dashboard:** `http://localhost:3001/analytics`
 
+## Theme Management
+
+Background themes can be managed from the Admin Dashboard (`http://localhost:3001/admin`).
+
+### Adding New Themes
+
+1.  Create a new folder inside the `themes/` directory (e.g., `themes/my-custom-theme`).
+2.  Inside this folder, place your theme files:
+    *   `index.html`: Contains the HTML structure for your background theme.
+    *   `style.css`: Contains the CSS for your background theme. Ensure all your CSS rules are scoped to `#theme-YOUR_THEME_FOLDER_NAME` to avoid conflicts with the main application styles.
+    *   `script.js`: Contains any JavaScript for your background theme. Wrap your script in an IIFE to prevent global scope pollution.
+3.  Go to the Admin Dashboard and click "Scan for New Themes". Your new theme should appear in the list.
+
+### Activating/Deactivating Themes
+
+*   From the "Background Themes" section in the Admin Dashboard, click "Activate" next to your desired theme.
+*   To deactivate the current theme, click "Deactivate" next to the active theme.
+
+## Analytics Filtering
+
+The Analytics Dashboard (`http://localhost:3001/analytics`) now supports interactive filtering:
+
+*   **Click to Filter:** Click on any "Top Link", "Top Country", or "Top Referrer" to add it as an exclusion filter. The page will reload, and the data will update to exclude the selected item.
+*   **Remove Filters:** Active filters are displayed at the top of the page. Click on a crossed-out filter to remove it.
+
 ## Building CSS
 
 The CSS is automatically built in development mode. If you need to build the CSS manually (e.g., for deployment), use the following command:
@@ -106,6 +133,7 @@ Before building the Docker image, you **must** ensure you have:
     *   `public/styles.css`
     *   `public/fp.umd.min.js` (FingerprintJS UMD build)
     *   `public/favicon.png`
+4. Created your custom themes in the `themes/` directory.
 
 ### Building the Image
 

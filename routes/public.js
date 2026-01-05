@@ -2,8 +2,12 @@ import { getVisibleLinks, getSettings, getIconLinks } from '../lib/db.js';
 import { getCountry } from '../lib/geo.js';
 import { countries as countryList } from 'countries-list';
 import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
+import path from 'path';
+import fs from 'fs';
 
 async function publicRoutes(fastify, options) {
+  const themesPath = path.join(process.cwd(), 'themes');
+
   // The main public route that displays the links.
   fastify.get('/', async (request, reply) => {
     // 1. Determine the user's country. Prioritize the 'country' cookie.
@@ -57,8 +61,21 @@ async function publicRoutes(fastify, options) {
 
     const iconLinks = getIconLinks();
 
+    // Load active theme files
+    let themeContent = { html: '', css: '', js: '' };
+    if (settings.active_theme) {
+      const themePath = path.join(themesPath, settings.active_theme);
+      try {
+        themeContent.html = fs.readFileSync(path.join(themePath, 'index.html'), 'utf8');
+        themeContent.css = fs.readFileSync(path.join(themePath, 'style.css'), 'utf8');
+        themeContent.js = fs.readFileSync(path.join(themePath, 'script.js'), 'utf8');
+      } catch (e) {
+        console.error(`Error loading theme ${settings.active_theme}:`, e);
+      }
+    }
+
     // 6. Render the main page
-    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme, country: country });
+    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme, themeContent, country: country });
   });
 
   // This route handles the country selection from the popup.

@@ -9,12 +9,18 @@ import {
   toggleLink18Plus,
   getIconLinks,
   addIconLink,
-  deleteIconLink
+  deleteIconLink,
+  setActiveTheme,
+  discoverThemes
 } from '../lib/db.js';
 import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
 import { exportDb, importDb } from '../lib/import_export.js';
+import path from 'path';
+import fs from 'fs';
 
 async function adminRoutes(fastify, options) {
+  const themesPath = path.join(process.cwd(), 'themes');
+
   // GET /admin/export - Export database content as JSON
   fastify.get('/admin/export', async (request, reply) => {
     const dbContent = exportDb();
@@ -35,6 +41,7 @@ async function adminRoutes(fastify, options) {
 
   // GET /admin - Display admin dashboard
   fastify.get('/admin', async (request, reply) => {
+    const themes = discoverThemes(themesPath);
     const links = getLinks();
     const iconLinks = getIconLinks();
     const settings = getSettings() || {};
@@ -66,14 +73,27 @@ async function adminRoutes(fastify, options) {
       linkTextColor: textColor, // Same as main text color
     };
 
-    return reply.view('admin', { links: links, iconLinks: iconLinks, settings: settings, theme: theme });
+    // Load active theme files
+    let themeContent = { html: '', css: '', js: '' };
+    if (settings.active_theme) {
+      const themePath = path.join(themesPath, settings.active_theme);
+      try {
+        themeContent.html = fs.readFileSync(path.join(themePath, 'index.html'), 'utf8');
+        themeContent.css = fs.readFileSync(path.join(themePath, 'style.css'), 'utf8');
+        themeContent.js = fs.readFileSync(path.join(themePath, 'script.js'), 'utf8');
+      } catch (e) {
+        console.error(`Error loading theme ${settings.active_theme}:`, e);
+      }
+    }
+
+    return reply.view('admin', { links, iconLinks, settings, themes, theme, themeContent });
   });
 
   // POST /admin/profile - Update profile settings
   fastify.post('/admin/profile', async (request, reply) => {
     const { username, profile_pic_url, bio, page_title } = request.body;
     const settings = getSettings() || {};
-    updateSettings(settings.container_color, username, profile_pic_url, bio, page_title);
+    updateSettings(settings.container_color, username, profile_pic_url, bio, page_title, settings.active_theme);
     return reply.redirect('/admin');
   });
 
@@ -81,7 +101,26 @@ async function adminRoutes(fastify, options) {
   fastify.post('/admin/settings', async (request, reply) => {
     const { containerColor } = request.body;
     const settings = getSettings() || {};
-    updateSettings(containerColor, settings.username, settings.profile_pic_url, settings.bio, settings.page_title);
+    updateSettings(containerColor, settings.username, settings.profile_pic_url, settings.bio, settings.page_title, settings.active_theme);
+    return reply.redirect('/admin');
+  });
+
+  // POST /admin/themes/activate - Activate a theme
+  fastify.post('/admin/themes/activate', async (request, reply) => {
+    const { themeName } = request.body;
+    setActiveTheme(themeName);
+    return reply.redirect('/admin');
+  });
+
+  // POST /admin/themes/scan - Scan for new themes
+  fastify.post('/admin/themes/scan', async (request, reply) => {
+    discoverThemes(themesPath);
+    return reply.redirect('/admin');
+  });
+
+  // POST /admin/themes/deactivate - Deactivate the active theme
+  fastify.post('/admin/themes/deactivate', async (request, reply) => {
+    setActiveTheme(null);
     return reply.redirect('/admin');
   });
 

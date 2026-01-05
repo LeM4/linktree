@@ -18,10 +18,12 @@
             --link-color: <%= theme.linkColor %>;
             --link-text-color: <%= theme.linkTextColor %>;
         }
+        <%- themeContent.css %>
     </style>
 </head>
 <body style="background: var(--background-gradient); color: var(--text-color);" class="p-4">
-    <div id="admin-container" class="container mx-auto max-w-2xl p-6 rounded-lg shadow-md" style="background: var(--container-gradient);">
+    <div id="theme-background" class="absolute inset-0 w-full h-full z-[-1]"><%- themeContent.html %></div>
+    <div id="admin-container" class="container mx-auto max-w-2xl p-6 rounded-lg shadow-md relative z-10" style="background: var(--container-gradient);">
         <h1 class="text-2xl font-bold mb-6" style="color: var(--text-color);">Admin Dashboard</h1>
 
         <div class="mb-8" 
@@ -101,6 +103,33 @@
         </div>
 
         <div class="mb-8">
+            <h2 class="text-xl font-semibold mb-4" style="color: var(--text-color);">Background Themes</h2>
+            <form action="/admin/themes/scan" method="POST" class="mb-4">
+                <button type="submit" class="bg-blue-500 text-white p-2 rounded-md hover:opacity-75 cursor-pointer">Scan for New Themes</button>
+            </form>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <% themes.forEach(theme => { %>
+                    <div class="p-4 border rounded-md <%= settings.active_theme === theme ? 'border-green-500' : '' %>">
+                        <p class="font-bold"><%= theme %></p>
+                        <% if (settings.active_theme !== theme) { %>
+                            <form action="/admin/themes/activate" method="POST" class="mt-2">
+                                <input type="hidden" name="themeName" value="<%= theme %>">
+                                <button type="submit" class="bg-green-500 text-white px-2 py-1 rounded-md text-sm cursor-pointer hover:opacity-75">Activate</button>
+                            </form>
+                        <% } else { %>
+                            <div class="flex items-center space-x-2 mt-2">
+                                <p class="text-green-500 text-sm font-bold">Active</p>
+                                <form action="/admin/themes/deactivate" method="POST">
+                                    <button type="submit" class="bg-red-500 text-white px-2 py-1 rounded-md text-xs cursor-pointer hover:opacity-75">Deactivate</button>
+                                </form>
+                            </div>
+                        <% } %>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+
+        <div class="mb-8">
             <h2 class="text-xl font-semibold mb-4" style="color: var(--text-color);">Add New Link</h2>
             <form hx-post="/admin/links" hx-target="#link-list" hx-swap="outerHTML" class="flex flex-col space-y-4">
                 <input type="text" name="title" placeholder="Link Title" class="p-2 border border-gray-300 rounded-md">
@@ -169,6 +198,9 @@
         document.addEventListener('DOMContentLoaded', function () {
             initColorPickers();
         });
+    </script>
+    <script>
+        <%- themeContent.js %>
     </script>
 </body>
 </html>
