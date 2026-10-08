@@ -19,22 +19,22 @@
     "cli": "bun cli.js"
   },
   "dependencies": {
-    "@fastify/cookie": "^11.0.2",
-    "@fastify/formbody": "^8.0.2",
-    "@fastify/static": "^8.3.0",
-    "@fastify/view": "^11.1.1",
-    "countries-list": "^3.2.2",
-    "ejs": "^3.1.10",
-    "fastify": "^5.6.2"
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/formbody": "^9.0.0",
+    "@fastify/static": "^10.1.5",
+    "@fastify/view": "^12.0.0",
+    "countries-list": "^3.4.1",
+    "ejs": "^7.0.1",
+    "fastify": "^5.12.5"
   },
   "devDependencies": {
     "@fingerprintjs/fingerprintjs": "^5.0.0",
     "@fontsource/arvo": "^5.0.0",
-    "@tailwindcss/cli": "^4.1.18",
+    "@tailwindcss/cli": "^4.3.3",
     "alpinejs": "^3.14.0",
     "chart.js": "^4.4.0",
-    "concurrently": "^9.2.1",
+    "concurrently": "^10.0.5",
     "htmx.org": "^2.0.4",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.3.3"
   }
 }
