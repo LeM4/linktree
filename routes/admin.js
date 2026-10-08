@@ -1,182 +1,206 @@
 import {
   getLinks,
+  getLink,
   addLink,
+  updateLink,
   toggleLink,
-  updateLinkCountries,
+  toggleLink18Plus,
   deleteLink,
+  moveLink,
   getSettings,
   updateSettings,
-  toggleLink18Plus,
+  setActiveTheme,
   getIconLinks,
   addIconLink,
   deleteIconLink,
-  setActiveTheme,
-  discoverThemes
+  moveIconLink,
 } from '../lib/db.js';
-import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
 import { exportDb, importDb } from '../lib/import_export.js';
-import path from 'path';
-import fs from 'fs';
+import { discoverThemes, isKnownTheme, buildPalette } from '../lib/theme.js';
+import { safeUrl, parseCountryList, isHexColor, clampText } from '../lib/validate.js';
+import config from '../lib/config.js';
 
-async function adminRoutes(fastify, options) {
-  const themesPath = path.join(process.cwd(), 'themes');
+const MESSAGES = {
+  ok: {
+    profile: 'Profile saved',
+    appearance: 'Appearance saved',
+    theme: 'Background theme updated',
+    'link-added': 'Link added',
+    'link-saved': 'Link saved',
+    'link-deleted': 'Link deleted',
+    'link-updated': 'Link updated',
+    'icon-added': 'Icon link added',
+    'icon-deleted': 'Icon link deleted',
+    'icon-updated': 'Icon link updated',
+    imported: 'Backup imported',
+  },
+  error: {
+    'invalid-url': 'Please enter a valid http(s) URL',
+    'missing-title': 'Please enter a title',
+    'invalid-color': 'Please pick a valid color',
+    'invalid-image': 'Profile picture must be an image URL or upload',
+    'invalid-svg': 'SVG must start with <svg> and must not contain scripts or event handlers',
+    'unknown-theme': 'Theme not found',
+    'import-failed': 'Import failed – please check the JSON',
+    'not-found': 'That item no longer exists',
+  },
+};
 
-  // GET /admin/export - Export database content as JSON
-  fastify.get('/admin/export', async (request, reply) => {
-    const dbContent = exportDb();
-    return reply.send(dbContent);
-  });
+const MAX_IMAGE_DATA_URL = 1.5 * 1024 * 1024;
+const DATA_IMAGE = /^data:image\/(png|jpe?g|webp|gif|avif|svg\+xml);base64,[a-z0-9+/=]+$/i;
+const UNSAFE_SVG = /<script|<foreignobject|\son[a-z]+\s*=|javascript:/i;
 
-  // POST /admin/import - Import database content from JSON
-  fastify.post('/admin/import', async (request, reply) => {
-    const { dbContent } = request.body;
-    try {
-      importDb(dbContent);
-    } catch (e) {
-      console.error("Import failed:", e);
-      // You might want to add some error feedback to the user here
-    }
-    return reply.redirect('/admin');
-  });
+function profileImage(value) {
+  const input = typeof value === 'string' ? value.trim() : '';
+  if (!input) return '';
+  if (input.startsWith('data:')) return input.length <= MAX_IMAGE_DATA_URL && DATA_IMAGE.test(input) ? input : null;
+  return safeUrl(input);
+}
 
-  // GET /admin - Display admin dashboard
+async function adminRoutes(fastify) {
+  const done = (reply, { ok, error, section }) => {
+    const query = ok ? `ok=${ok}` : `error=${error}`;
+    return reply.redirect(`/admin?${query}${section ? `#${section}` : ''}`, 303);
+  };
+  const id = (request) => Number(request.params.id);
+
+  fastify.get('/', (request, reply) => reply.redirect('/admin', 302));
+
   fastify.get('/admin', async (request, reply) => {
-    const themes = discoverThemes(themesPath);
-    const links = getLinks();
-    const iconLinks = getIconLinks();
+    const { ok, error } = request.query;
     const settings = getSettings() || {};
-    const baseColor = settings.container_color || '#f0f0f0';
+    const flash =
+      (MESSAGES.ok[ok] && { type: 'success', message: MESSAGES.ok[ok] }) ||
+      (MESSAGES.error[error] && { type: 'error', message: MESSAGES.error[error] }) ||
+      null;
 
-    // User adjustable factors (0.0 to 1.0)
-    const BG_SHADE_FACTOR = 0.3;          // 30% shade for background
-    const LINK_TINT_FACTOR = 0.9;         // 90% tint for links
-    const TEXT_SHADE_FACTOR = 0.8;        // 80% shade for text
-    const GRADIENT_SHADE_FACTOR = 0.05;   // 5% shade for gradient
-    const GRADIENT_TINT_FACTOR = 0.01;    // 1% tint for gradient
-
-    // Calculate container gradient colors
-    const containerShade = createShade(baseColor, GRADIENT_SHADE_FACTOR);
-    const containerTint = createTint(baseColor, GRADIENT_TINT_FACTOR);
-
-    // Calculate background gradient colors
-    const backgroundBaseColor = createShade(baseColor, BG_SHADE_FACTOR);
-    const backgroundShade = createShade(backgroundBaseColor, GRADIENT_SHADE_FACTOR);
-    const backgroundTint = createTint(backgroundBaseColor, GRADIENT_TINT_FACTOR);
-
-    const textColor = createShade(baseColor, TEXT_SHADE_FACTOR);
-
-    const theme = {
-      containerGradient: `linear-gradient(to bottom, ${containerShade}, ${baseColor}, ${containerTint})`,
-      backgroundGradient: `linear-gradient(to bottom, ${backgroundShade}, ${backgroundBaseColor}, ${backgroundTint})`,
-      textColor: textColor,
-      linkColor: createTint(baseColor, LINK_TINT_FACTOR),
-      linkTextColor: textColor, // Same as main text color
-    };
-
-    // Load active theme files
-    let themeContent = { html: '', css: '', js: '' };
-    if (settings.active_theme) {
-      const themePath = path.join(themesPath, settings.active_theme);
-      try {
-        themeContent.html = fs.readFileSync(path.join(themePath, 'index.html'), 'utf8');
-        themeContent.css = fs.readFileSync(path.join(themePath, 'style.css'), 'utf8');
-        themeContent.js = fs.readFileSync(path.join(themePath, 'script.js'), 'utf8');
-      } catch (e) {
-        console.error(`Error loading theme ${settings.active_theme}:`, e);
-      }
-    }
-
-    return reply.view('admin', { links, iconLinks, settings, themes, theme, themeContent });
+    reply.header('Cache-Control', 'no-store');
+    return reply.view('admin', {
+      page: 'admin',
+      settings,
+      links: getLinks(),
+      iconLinks: getIconLinks(),
+      themes: discoverThemes(),
+      palette: buildPalette(settings.container_color),
+      publicUrl: config.publicUrl,
+      flash,
+    });
   });
 
-  // POST /admin/profile - Update profile settings
+  // --- Profile & appearance ---------------------------------------------------
+
   fastify.post('/admin/profile', async (request, reply) => {
-    const { username, profile_pic_url, bio, page_title } = request.body;
-    const settings = getSettings() || {};
-    updateSettings(settings.container_color, username, profile_pic_url, bio, page_title, settings.active_theme);
-    return reply.redirect('/admin');
+    const body = request.body || {};
+    const image = profileImage(body.profile_pic_url);
+    if (image === null) return done(reply, { error: 'invalid-image', section: 'profile' });
+
+    updateSettings({
+      username: clampText(body.username, 100),
+      page_title: clampText(body.page_title, 120),
+      bio: clampText(body.bio, 1000),
+      profile_pic_url: image,
+    });
+    return done(reply, { ok: 'profile', section: 'profile' });
   });
 
-  // POST /admin/settings - Update theme settings
-  fastify.post('/admin/settings', async (request, reply) => {
-    const { containerColor } = request.body;
-    const settings = getSettings() || {};
-    updateSettings(containerColor, settings.username, settings.profile_pic_url, settings.bio, settings.page_title, settings.active_theme);
-    return reply.redirect('/admin');
+  fastify.post('/admin/appearance', async (request, reply) => {
+    const color = String(request.body?.containerColor || '').toLowerCase();
+    if (!isHexColor(color)) return done(reply, { error: 'invalid-color', section: 'appearance' });
+    updateSettings({ container_color: color });
+    return done(reply, { ok: 'appearance', section: 'appearance' });
   });
 
-  // POST /admin/themes/activate - Activate a theme
   fastify.post('/admin/themes/activate', async (request, reply) => {
-    const { themeName } = request.body;
-    setActiveTheme(themeName);
-    return reply.redirect('/admin');
+    const name = request.body?.themeName;
+    if (!isKnownTheme(name)) return done(reply, { error: 'unknown-theme', section: 'appearance' });
+    setActiveTheme(name);
+    return done(reply, { ok: 'theme', section: 'appearance' });
   });
 
-  // POST /admin/themes/scan - Scan for new themes
-  fastify.post('/admin/themes/scan', async (request, reply) => {
-    discoverThemes(themesPath);
-    return reply.redirect('/admin');
-  });
-
-  // POST /admin/themes/deactivate - Deactivate the active theme
   fastify.post('/admin/themes/deactivate', async (request, reply) => {
     setActiveTheme(null);
-    return reply.redirect('/admin');
+    return done(reply, { ok: 'theme', section: 'appearance' });
   });
 
-  // POST /admin/icon-links - Add a new icon link
-  fastify.post('/admin/icon-links', async (request, reply) => {
-    const { url, svg_code } = request.body;
-    addIconLink(url, svg_code);
-    return reply.redirect('/admin');
-  });
+  // --- Links ---------------------------------------------------------------------
 
-  // POST /admin/icon-links/:id/delete - Delete an icon link
-  fastify.post('/admin/icon-links/:id/delete', async (request, reply) => {
-    const { id } = request.params;
-    deleteIconLink(id);
-    return reply.redirect('/admin');
-  });
-
-  // POST /admin/links - Add a new link
   fastify.post('/admin/links', async (request, reply) => {
-    const { title, url } = request.body;
+    const title = clampText(request.body?.title, 200);
+    const url = safeUrl(request.body?.url);
+    if (!title) return done(reply, { error: 'missing-title', section: 'links' });
+    if (!url) return done(reply, { error: 'invalid-url', section: 'links' });
     addLink(title, url);
-    return reply.redirect('/admin');
+    return done(reply, { ok: 'link-added', section: 'links' });
   });
 
-  // POST /admin/links/:id/toggle - Toggle link enabled/disabled state
+  fastify.post('/admin/links/:id', async (request, reply) => {
+    if (!getLink(id(request))) return done(reply, { error: 'not-found', section: 'links' });
+    const title = clampText(request.body?.title, 200);
+    const url = safeUrl(request.body?.url);
+    if (!title) return done(reply, { error: 'missing-title', section: 'links' });
+    if (!url) return done(reply, { error: 'invalid-url', section: 'links' });
+    updateLink(id(request), { title, url, blocked: parseCountryList(request.body?.countries) });
+    return done(reply, { ok: 'link-saved', section: 'links' });
+  });
+
   fastify.post('/admin/links/:id/toggle', async (request, reply) => {
-    const { id } = request.params;
-    toggleLink(id);
-    return reply.redirect('/admin');
+    toggleLink(id(request));
+    return done(reply, { ok: 'link-updated', section: 'links' });
   });
 
-  // POST /admin/links/:id/toggle-18-plus - Toggle 18+ status
   fastify.post('/admin/links/:id/toggle-18-plus', async (request, reply) => {
-    const { id } = request.params;
-    toggleLink18Plus(id);
-    return reply.redirect('/admin');
+    toggleLink18Plus(id(request));
+    return done(reply, { ok: 'link-updated', section: 'links' });
   });
 
-  // POST /admin/links/:id/countries - Update blocked countries for a link
-  fastify.post('/admin/links/:id/countries', async (request, reply) => {
-    const { id } = request.params;
-    let { countries } = request.body;
-    if (countries) {
-      countries = JSON.stringify(countries.split(',').map(c => c.trim()).filter(c => c !== ''));
-    } else {
-      countries = '[]';
-    }
-    updateLinkCountries(id, countries);
-    return reply.redirect('/admin');
+  fastify.post('/admin/links/:id/move', async (request, reply) => {
+    moveLink(id(request), request.body?.direction === 'up' ? 'up' : 'down');
+    return done(reply, { ok: 'link-updated', section: 'links' });
   });
 
-  // POST /admin/links/:id/delete - Delete a link
   fastify.post('/admin/links/:id/delete', async (request, reply) => {
-    const { id } = request.params;
-    deleteLink(id);
-    return reply.redirect('/admin');
+    deleteLink(id(request));
+    return done(reply, { ok: 'link-deleted', section: 'links' });
+  });
+
+  // --- Icon links ----------------------------------------------------------------
+
+  fastify.post('/admin/icon-links', async (request, reply) => {
+    const url = safeUrl(request.body?.url);
+    const svg = clampText(request.body?.svg_code, 20000);
+    if (!url) return done(reply, { error: 'invalid-url', section: 'icons' });
+    if (!/^<svg[\s>]/i.test(svg) || UNSAFE_SVG.test(svg)) return done(reply, { error: 'invalid-svg', section: 'icons' });
+    addIconLink(url, svg);
+    return done(reply, { ok: 'icon-added', section: 'icons' });
+  });
+
+  fastify.post('/admin/icon-links/:id/move', async (request, reply) => {
+    moveIconLink(id(request), request.body?.direction === 'up' ? 'up' : 'down');
+    return done(reply, { ok: 'icon-updated', section: 'icons' });
+  });
+
+  fastify.post('/admin/icon-links/:id/delete', async (request, reply) => {
+    deleteIconLink(id(request));
+    return done(reply, { ok: 'icon-deleted', section: 'icons' });
+  });
+
+  // --- Backup --------------------------------------------------------------------
+
+  fastify.get('/admin/export', async (request, reply) => {
+    const date = new Date().toISOString().slice(0, 10);
+    reply.header('Content-Disposition', `attachment; filename="linktree-backup-${date}.json"`);
+    reply.header('Cache-Control', 'no-store');
+    return reply.type('application/json').send(JSON.stringify(exportDb(), null, 2));
+  });
+
+  fastify.post('/admin/import', async (request, reply) => {
+    try {
+      importDb(String(request.body?.dbContent || ''));
+    } catch (err) {
+      request.log.warn({ err }, 'Import failed');
+      return done(reply, { error: 'import-failed', section: 'backup' });
+    }
+    return done(reply, { ok: 'imported', section: 'backup' });
   });
 }
 

@@ -1,84 +1,71 @@
-<!-- views/partials/country-selector.ejs -->
-<form action="/select-country" method="POST"
-      x-data="{
-          // --- Component State ---
-          open: false,
-          search: '',
-          countries: window.countriesData,
-          selected: { code: '', name: '' },
-          hint: '',
-
-          // --- Computed Properties ---
-          // Filters the list of countries based on the search input. If the search is empty, it returns all countries.
-          filteredCountries() {
-              if (!this.search) return this.countries;
-              return this.countries.filter(c => c.name.toLowerCase().startsWith(this.search.toLowerCase()));
-          },
-          
-          // --- Event Handlers & Methods ---
-          // Updates the ghost hint when the search input changes.
-          updateHint() {
-              if (!this.search) {
-                  this.hint = '';
-                  return;
-              }
-              const firstMatch = this.filteredCountries()[0];
-              if (firstMatch) {
-                  this.hint = this.search + firstMatch.name.substring(this.search.length);
-              } else {
-                  this.hint = '';
-              }
-          },
-          // Completes the search input with the current hint and closes the dropdown.
-          complete() {
-              const firstMatch = this.filteredCountries()[0];
-              if (firstMatch) {
-                  this.search = firstMatch.name;
-                  this.selected = firstMatch;
-                  this.updateHint();
-                  this.open = false; // Close the dropdown after completion
-              }
-          },
-          // Selects a country from the list.
-          selectCountry(country) {
-              this.selected = country;
-              this.search = country.name;
-              this.open = false;
-          }
-      }"
-      class="flex flex-col space-y-4">
-
-    <div class="relative" @click.away="open = false">
-        <!-- The main input group with ghost hint -->
+<script type="application/json" id="countries-data"><%- json(countries) %></script>
+<script>
+    window.countrySelector = function () {
+        return {
+            open: false,
+            search: '',
+            countries: JSON.parse(document.getElementById('countries-data').textContent),
+            selected: { code: '', name: '' },
+            active: 0,
+            get filtered() {
+                const q = this.search.trim().toLowerCase();
+                if (!q) return this.countries;
+                const starts = this.countries.filter(c => c.name.toLowerCase().startsWith(q));
+                const contains = this.countries.filter(c => !starts.includes(c) && c.name.toLowerCase().includes(q));
+                return [...starts, ...contains];
+            },
+            get hint() {
+                const first = this.filtered[0];
+                return this.search && first && first.name.toLowerCase().startsWith(this.search.toLowerCase())
+                    ? this.search + first.name.slice(this.search.length)
+                    : '';
+            },
+            select(country) {
+                if (!country) return;
+                this.selected = country;
+                this.search = country.name;
+                this.open = false;
+            },
+            move(step) {
+                this.open = true;
+                this.active = Math.max(0, Math.min(this.filtered.length - 1, this.active + step));
+                this.$nextTick(() => this.$refs.list?.children[this.active]?.scrollIntoView({ block: 'nearest' }));
+            },
+        };
+    };
+</script>
+<form action="/select-country" method="POST" x-data="countrySelector()" class="flex flex-col gap-4">
+    <div class="relative" @click.outside="open = false">
         <div class="relative">
-            <!-- Ghost hint input (background) -->
-            <input type="text" :value="hint" class="absolute inset-0 p-3 bg-transparent text-gray-400 pointer-events-none" readonly>
-            <!-- User input (foreground) -->
-            <input type="text"
-                   x-model="search"
-                   @input="updateHint"
+            <input type="text" :value="hint" tabindex="-1" aria-hidden="true" readonly
+                   class="pointer-events-none absolute inset-0 w-full rounded-xl border border-transparent bg-transparent px-4 py-3 text-zinc-400">
+            <input type="text" x-model="search" autocomplete="off" aria-label="Country"
+                   @input="open = true; active = 0; selected = { code: '', name: '' }"
                    @focus="open = true"
-                   @keydown.enter.prevent="complete"
-                   @keydown.tab.prevent="complete"
-                   placeholder="Search for a country..."
-                   class="relative p-3 border border-gray-300 rounded-md w-full bg-transparent">
+                   @keydown.arrow-down.prevent="move(1)"
+                   @keydown.arrow-up.prevent="move(-1)"
+                   @keydown.enter.prevent="select(filtered[active])"
+                   @keydown.tab="hint && ($event.preventDefault(), select(filtered[0]))"
+                   @keydown.escape="open = false"
+                   placeholder="Search for a country…"
+                   class="relative w-full rounded-xl border border-zinc-300 bg-transparent px-4 py-3 text-zinc-900 transition focus:border-zinc-900 focus:ring-4 focus:ring-zinc-900/10 focus:outline-none">
         </div>
-        <input type="hidden" name="country" x-model="selected.code">
+        <input type="hidden" name="country" :value="selected.code">
 
-        <!-- The dropdown list -->
-        <div x-show="open" class="absolute z-10 w-full bg-white border mt-1 rounded-md shadow-lg max-h-60 overflow-y-auto">
-            <ul>
-                <template x-for="country in filteredCountries()" :key="country.code">
-                    <li @click="selectCountry(country)" class="p-2 hover:bg-blue-100 cursor-pointer" x-text="country.name"></li>
-                </template>
-            </ul>
-        </div>
+        <ul x-show="open && filtered.length" x-cloak x-ref="list"
+            x-transition:enter="transition duration-150 ease-out"
+            x-transition:enter-start="opacity-0 -translate-y-1"
+            class="absolute z-10 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-xl">
+            <template x-for="(country, i) in filtered" :key="country.code">
+                <li @click="select(country)" @mouseenter="active = i"
+                    :class="i === active ? 'bg-zinc-100' : ''"
+                    class="cursor-pointer rounded-lg px-3 py-2 text-sm text-zinc-800" x-text="country.name"></li>
+            </template>
+        </ul>
     </div>
 
-    <button type="submit"
-            class="bg-blue-500 text-white p-3 rounded-md w-full font-semibold"
-            :class="{ 'opacity-50 cursor-not-allowed': !selected.code }"
-            :disabled="!selected.code">
+    <button type="submit" :disabled="!selected.code"
+            class="w-full cursor-pointer rounded-xl bg-zinc-900 px-4 py-3 font-semibold text-white transition hover:bg-zinc-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40">
         Confirm
     </button>
 </form>

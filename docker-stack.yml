@@ -1,0 +1,92 @@
+# Docker Swarm stack for Portainer (Stacks -> Add stack -> paste / Git repository).
+#
+# Before deploying:
+#   1. Create the admin password secret (Portainer: Secrets -> Add secret, or CLI):
+#        printf '%s' 'a-long-random-password' | docker secret create linktree_admin_password -
+#   2. Set the environment variables below in Portainer's "Environment variables" section
+#      (or edit the defaults here).
+#
+# SQLite is a single-writer database: keep replicas at 1 and pin the service to the node
+# that holds the volume (see placement constraint).
+
+version: "3.8"
+
+services:
+  linktree:
+    image: ${LINKTREE_IMAGE:-ghcr.io/lem4/linktree:latest}
+    environment:
+      TZ: ${TZ:-UTC}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD_FILE: /run/secrets/linktree_admin_password
+      TRUST_PROXY: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    secrets:
+      - linktree_admin_password
+    volumes:
+      - linktree-data:/usr/src/app/db
+    ports:
+      # Public page. Remove if traffic only arrives through a tunnel/reverse proxy on the overlay network.
+      - target: 3000
+        published: ${PUBLIC_PUBLISHED_PORT:-3000}
+        protocol: tcp
+        mode: ingress
+      # Admin dashboard. "host" mode publishes it only on the node running the task;
+      # keep this port firewalled / VPN-only, or remove it and reach the admin via a tunnel.
+      - target: 3001
+        published: ${ADMIN_PUBLISHED_PORT:-3001}
+        protocol: tcp
+        mode: host
+    networks:
+      - linktree
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - ${LINKTREE_PLACEMENT:-node.role == manager}
+      update_config:
+        # Stop the old task first so two processes never write the same SQLite file.
+        order: stop-first
+        failure_action: rollback
+        monitor: 30s
+      rollback_config:
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 5
+        window: 2m
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  # Optional: expose the public page through a Cloudflare Tunnel (required for
+  # CF-IPCountry geo-blocking). Create the tunnel in the Cloudflare dashboard, point the
+  # public hostname to http://linktree:3000, set CLOUDFLARED_TOKEN in Portainer's
+  # environment variables (never commit it) and uncomment this service.
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     TUNNEL_TOKEN: ${CLOUDFLARED_TOKEN}
+  #   networks:
+  #     - linktree
+  #   deploy:
+  #     replicas: 1
+  #     restart_policy:
+  #       condition: any
+
+networks:
+  linktree:
+    driver: overlay
+    attachable: true
+
+volumes:
+  linktree-data:
+
+secrets:
+  linktree_admin_password:
+    external: true

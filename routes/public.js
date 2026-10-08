@@ -1,90 +1,71 @@
-import { getVisibleLinks, getSettings, getIconLinks } from '../lib/db.js';
+import { getVisibleLinks, getLink, isVisible, getSettings, getIconLinks } from '../lib/db.js';
+import { findOrCreateUser, addVisitation, addLinkClick } from '../lib/analytics_db.js';
 import { getCountry } from '../lib/geo.js';
-import { countries as countryList } from 'countries-list';
-import { getContrastingTextColor, createShade, createTint } from '../lib/colors.js';
-import path from 'path';
-import fs from 'fs';
+import { buildPalette, loadTheme } from '../lib/theme.js';
+import { inferReferrerFromUserAgent } from '../lib/user-agent-helper.js';
+import { countryOptions, isCountryCode, normalizeReferrer, clampText } from '../lib/validate.js';
 
-async function publicRoutes(fastify, options) {
-  const themesPath = path.join(process.cwd(), 'themes');
+const YEAR = 60 * 60 * 24 * 365;
 
-  // The main public route that displays the links.
-  fastify.get('/', async (request, reply) => {
-    // 1. Determine the user's country. Prioritize the 'country' cookie.
-    //    If the cookie is not set, fall back to the 'cf-ipcountry' header.
-    let country = request.cookies.country || getCountry(request);
-    let showCountryPopup = false;
-
-    // 2. If no country can be determined, set a flag to show the popup.
-    if (!country) {
-      showCountryPopup = true;
-    }
-
-    // 3. Get the links that are visible for the determined country.
-    const links = getVisibleLinks(country);
-
-    // 4. Prepare the list of countries from the 'countries-list' package for the popup.
-    const countries = Object.entries(countryList).map(([code, country]) => ({
-      code,
-      name: country.name,
-    }));
-
-    // 5. Get theme settings and calculate colors
-    const settings = getSettings() || {};
-    const baseColor = settings.container_color || '#f0f0f0';
-
-    // User adjustable factors (0.0 to 1.0)
-    const BG_SHADE_FACTOR = 0.3;          // 30% shade for background
-    const LINK_TINT_FACTOR = 0.9;         // 90% tint for links
-    const TEXT_SHADE_FACTOR = 0.9;        // 90% shade for text
-    const GRADIENT_SHADE_FACTOR = 0.3;   // 30% shade for gradient
-    const GRADIENT_TINT_FACTOR = 0.2;    // 20% tint for gradient
-
-    // Calculate container gradient colors
-    const containerShade = createShade(baseColor, GRADIENT_SHADE_FACTOR);
-    const containerTint = createTint(baseColor, GRADIENT_TINT_FACTOR);
-    
-    // Calculate background gradient colors
-    const backgroundBaseColor = createShade(baseColor, BG_SHADE_FACTOR);
-    const backgroundShade = createShade(backgroundBaseColor, GRADIENT_SHADE_FACTOR);
-    const backgroundTint = createTint(backgroundBaseColor, GRADIENT_TINT_FACTOR);
-    
-    const textColor = createShade(baseColor, TEXT_SHADE_FACTOR);
-
-    const theme = {
-      containerGradient: `linear-gradient(to bottom, ${containerShade}, ${baseColor}, ${containerTint})`,
-      backgroundGradient: `linear-gradient(to bottom, ${backgroundShade}, ${backgroundBaseColor}, ${backgroundTint})`,
-      textColor: textColor,
-      linkColor: createTint(baseColor, LINK_TINT_FACTOR),
-      linkTextColor: textColor, // Same as main text color
-    };
-
-    const iconLinks = getIconLinks();
-
-    // Load active theme files
-    let themeContent = { html: '', css: '', js: '' };
-    if (settings.active_theme) {
-      const themePath = path.join(themesPath, settings.active_theme);
-      try {
-        themeContent.html = fs.readFileSync(path.join(themePath, 'index.html'), 'utf8');
-        themeContent.css = fs.readFileSync(path.join(themePath, 'style.css'), 'utf8');
-        themeContent.js = fs.readFileSync(path.join(themePath, 'script.js'), 'utf8');
-      } catch (e) {
-        console.error(`Error loading theme ${settings.active_theme}:`, e);
-      }
-    }
-
-    // 6. Render the main page
-    return reply.view('linktree', { links, iconLinks, settings, showCountryPopup, countries, theme, themeContent, country: country });
+async function publicRoutes(fastify) {
+  const cookieOptions = (request, maxAge) => ({
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: request.protocol === 'https',
+    maxAge,
   });
 
-  // This route handles the country selection from the popup.
+  fastify.get('/', async (request, reply) => {
+    const country = getCountry(request);
+    const settings = getSettings() || {};
+
+    reply.header('Cache-Control', 'no-store');
+    return reply.view('linktree', {
+      settings,
+      country,
+      links: getVisibleLinks(country),
+      iconLinks: getIconLinks(),
+      palette: buildPalette(settings.container_color),
+      themeContent: loadTheme(settings.active_theme),
+      showCountryPopup: !country,
+      countries: country ? [] : countryOptions,
+    });
+  });
+
   fastify.post('/select-country', async (request, reply) => {
-    const { country } = request.body;
-    // Set a cookie with the selected country. This will be used in subsequent requests.
-    reply.setCookie('country', country, { path: '/' });
-    // Redirect the user back to the home page to see the filtered links.
-    return reply.redirect('/');
+    const code = String(request.body?.country || '').toUpperCase();
+    if (isCountryCode(code)) reply.setCookie('country', code, cookieOptions(request, YEAR));
+    return reply.redirect('/', 303);
+  });
+
+  fastify.post('/track', async (request, reply) => {
+    const body = request.body || {};
+    const userAgent = request.headers['user-agent'] || '';
+    let referrer = normalizeReferrer(clampText(body.referrer, 2048));
+    // Reloads and the country-popup redirect are not real referrals.
+    if (referrer && new URL(referrer).host === request.host) referrer = '';
+    referrer = normalizeReferrer(inferReferrerFromUserAgent(userAgent, referrer));
+    const userId = Number.parseInt(body.userId, 10);
+
+    const user = findOrCreateUser(clampText(body.fingerprint, 128) || null, Number.isInteger(userId) ? userId : null);
+    const visitationId = addVisitation(user.id, getCountry(request), referrer, userAgent);
+
+    reply.setCookie('visitationId', String(visitationId), cookieOptions(request, 60 * 60 * 24));
+    return { ok: true, userId: user.id };
+  });
+
+  // Redirects through the server so clicks work without JS and can be counted,
+  // without turning the endpoint into an open redirect.
+  fastify.get('/go/:id', async (request, reply) => {
+    const link = getLink(Number(request.params.id));
+    if (!isVisible(link, getCountry(request))) return reply.code(404).type('text/plain').send('Link not found');
+
+    const visitationId = Number.parseInt(request.cookies.visitationId, 10);
+    if (Number.isInteger(visitationId)) addLinkClick(visitationId, link.url);
+
+    reply.header('Cache-Control', 'no-store');
+    return reply.redirect(link.url, 302);
   });
 }
 

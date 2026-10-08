@@ -1,61 +1,37 @@
-import fastify from 'fastify';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import ejs from 'ejs';
-import fastifyView from '@fastify/view';
-import fastifyCookie from '@fastify/cookie';
-import fastifyFormbody from '@fastify/formbody';
+import config from './lib/config.js';
+import { createApp, listen } from './lib/http.js';
+import { initDatabases } from './lib/setup.js';
+import { basicAuth, sameOrigin } from './lib/auth.js';
 import adminRoutes from './routes/admin.js';
 import analyticsRoutes from './routes/analytics.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const app = fastify({ logger: true, trustProxy: true });
-
-// Register cookie plugin
-app.register(fastifyCookie);
-
-// Register formbody plugin
-app.register(fastifyFormbody);
-
-// Register the view engine
-app.register(fastifyView, {
-  engine: {
-    ejs: ejs,
-  },
-  root: path.join(__dirname, 'views'),
-});
-
-// Register admin routes
-app.register(adminRoutes);
-app.register(analyticsRoutes);
-
-// Manually serve styles.css
-app.get('/styles.css', (req, reply) => {
-    const fs = require('fs');
-    const css = fs.readFileSync(path.join(__dirname, 'public', 'styles.css'), 'utf8');
-    reply.header('Content-Type', 'text/css').send(css);
-});
-
-// Serve favicon manually
-app.get('/favicon.png', (req, reply) => {
-    const fs = require('fs');
-    const favicon = fs.readFileSync(path.join(__dirname, 'public', 'favicon.png'));
-    reply.header('Content-Type', 'image/png').send(favicon);
-});
-
-// Start the server
-const start = async () => {
-  try {
-    await app.listen({
-      port: 3001,
-      host: process.env.HOST ?? '0.0.0.0'
-    });
-  } catch (err) {
-    app.log.error(err);
-    process.exit(1);
+export function buildAdminApp(options = {}) {
+  const { username, password, authDisabled } = config.admin;
+  if (!password && !authDisabled) {
+    throw new Error(
+      'ADMIN_PASSWORD (or ADMIN_PASSWORD_FILE) must be set. ' +
+        'Set ADMIN_AUTH_DISABLED=true only if the admin port is protected some other way.'
+    );
   }
-};
 
-start();
+  const app = createApp({ name: 'admin', bodyLimit: 5 * 1024 * 1024, ...options });
+  if (authDisabled) {
+    app.log.warn('Admin authentication is DISABLED – never expose this port publicly.');
+  } else {
+    app.addHook('onRequest', basicAuth({ username, password, publicPaths: ['/healthz'] }));
+  }
+  app.addHook('onRequest', sameOrigin);
+
+  app.register(adminRoutes);
+  app.register(analyticsRoutes);
+  return app;
+}
+
+export function startAdmin() {
+  return listen(buildAdminApp(), config.adminPort);
+}
+
+if (import.meta.main) {
+  initDatabases();
+  startAdmin();
+}

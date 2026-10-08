@@ -1,0 +1,25 @@
+<header class="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/75 backdrop-blur-lg dark:border-zinc-800/70 dark:bg-zinc-950/75">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+        <a href="/admin" hx-boost="false" class="flex items-center gap-2.5 font-semibold tracking-tight">
+            <span class="grid size-8 place-items-center rounded-xl bg-zinc-900 text-white dark:bg-white dark:text-zinc-900">
+                <%- include('icon', { name: 'link', cls: 'size-4' }) %>
+            </span>
+            <span class="hidden sm:inline">Linktree</span>
+            <span class="hidden text-zinc-400 sm:inline dark:text-zinc-500">Admin</span>
+        </a>
+
+        <nav class="flex items-center gap-1" aria-label="Main">
+            <a href="/admin" hx-boost="false" class="nav-tab" <%- page === 'admin' ? 'aria-current="page"' : '' %>>Dashboard</a>
+            <a href="/analytics" hx-boost="false" class="nav-tab" <%- page === 'analytics' ? 'aria-current="page"' : '' %>>Analytics</a>
+        </nav>
+
+        <% if (locals.publicUrl) { %>
+            <a href="<%= publicUrl %>" target="_blank" rel="noopener" hx-boost="false" class="btn btn-secondary btn-sm">
+                <span class="hidden sm:inline">View site</span>
+                <%- include('icon', { name: 'external', cls: 'size-3.5' }) %>
+            </a>
+        <% } else { %>
+            <span class="w-8"></span>
+        <% } %>
+    </div>
+</header>

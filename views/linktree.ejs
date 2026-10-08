@@ -2,99 +2,110 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><%= settings.page_title %></title>
-    <link rel="icon" href="/favicon.png">
-    <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title><%= settings.page_title || settings.username || 'Links' %></title>
+    <meta name="description" content="<%= settings.bio || '' %>">
+    <meta name="theme-color" content="<%= palette.base %>">
+    <meta property="og:title" content="<%= settings.page_title || settings.username || 'Links' %>">
+    <meta property="og:description" content="<%= settings.bio || '' %>">
+    <meta property="og:type" content="profile">
+    <% if (/^https?:\/\//.test(settings.profile_pic_url || '')) { %>
+    <meta property="og:image" content="<%= settings.profile_pic_url %>">
+    <% } %>
+    <link rel="icon" href="/static/favicon.png">
+    <link rel="preload" href="/static/fonts/arvo-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="<%= asset('styles.css') %>">
     <style>
         :root {
-            --background-gradient: <%= theme.backgroundGradient %>;
-            --container-gradient: <%= theme.containerGradient %>;
-            --text-color: <%= theme.textColor %>;
-            --link-color: <%= theme.linkColor %>;
-            --link-text-color: <%= theme.linkTextColor %>;
+            --background-gradient: <%= palette.backgroundGradient %>;
+            --container-gradient: <%= palette.containerGradient %>;
+            --text-color: <%= palette.textColor %>;
+            --link-color: <%= palette.linkColor %>;
+            --link-text-color: <%= palette.linkTextColor %>;
         }
         <%- themeContent.css %>
     </style>
-    <script>
-        window.countriesData = <%- JSON.stringify(countries) %>;
-    </script>
-    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="/fp.umd.min.js"></script>
-    <script defer src="https://unpkg.com/alpinejs@3.13.5"></script>
+    <script defer src="<%= asset('vendor/alpine.min.js') %>"></script>
+    <script defer src="<%= asset('vendor/fp.umd.min.js') %>"></script>
 </head>
-<body style="background: var(--background-gradient); color: var(--text-color);" 
-      class="flex items-center justify-center min-h-screen pt-12"
-      x-data="{ showPopup: <%= showCountryPopup %> }"
-      x-init="
-        window.FingerprintJS.load()
-          .then(fp => fp.get())
-          .then(result => {
-            const visitorId = result.visitorId;
-            const userId = localStorage.getItem('userId');
+<body class="min-h-dvh font-display antialiased" style="background: var(--background-gradient); color: var(--text-color);"
+      x-data="{ showPopup: <%= showCountryPopup ? 'true' : 'false' %> }">
 
-            htmx.ajax('POST', '/track', {
-              target: 'body',
-              swap: 'none',
-              values: {
-                fingerprint: visitorId,
-                country: '<%= country %>',
-                referrer: document.referrer,
-                userId: userId
-              }
-            });
-          });
-      "
-      @htmx:after-request="
-        if ($event.detail.requestConfig.path === '/track') {
-          const data = JSON.parse($event.detail.xhr.response);
-          if (data.userId) {
-            localStorage.setItem('userId', data.userId);
-          }
-        }
-      ">
+    <div id="theme-background" class="fixed inset-0 -z-10"><%- themeContent.html %></div>
 
-    <div id="theme-background" class="absolute inset-0 w-full h-full z-[-1]"><%- themeContent.html %></div>
-    
-    <div id="linktree-container" 
-         class="w-full h-full flex flex-col items-center justify-start relative z-10" 
-         :class="{ 'filter blur-sm': showPopup }">
-        <div class="w-full max-w-xl rounded-3xl p-8 shadow-lg" 
-             style="aspect-ratio: 9 / 19.5; background: var(--container-gradient);">
-            
-            <div class="flex flex-col items-center text-center">
-                <img src="<%= settings.profile_pic_url %>" alt="Profile Picture" class="rounded-full mx-auto h-24 w-24">
-                <h1 class="text-2xl font-semibold mt-4"><%= settings.username %></h1>
-                <p class="mt-2 mb-6 max-w-xs"><%= settings.bio %></p>
-            </div>
+    <main class="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 py-10 transition duration-500 ease-smooth sm:py-16"
+          :class="showPopup && 'blur-sm scale-[0.99]'">
+        <div class="rounded-[2rem] p-6 shadow-2xl animate-fade-up sm:p-8" style="background: var(--container-gradient);">
+            <header class="flex flex-col items-center text-center">
+                <% if (settings.profile_pic_url) { %>
+                    <img src="<%= settings.profile_pic_url %>" alt="<%= settings.username %>" width="96" height="96"
+                         class="size-24 rounded-full object-cover shadow-lg ring-4 ring-white/40">
+                <% } else { %>
+                    <div class="grid size-24 place-items-center rounded-full bg-black/10 text-4xl font-bold ring-4 ring-white/40">
+                        <%= (settings.username || '?').trim().charAt(0).toUpperCase() %>
+                    </div>
+                <% } %>
+                <h1 class="mt-4 text-2xl font-bold"><%= settings.username %></h1>
+                <% if (settings.bio) { %>
+                    <p class="mt-2 max-w-xs leading-relaxed whitespace-pre-line opacity-90"><%= settings.bio %></p>
+                <% } %>
+            </header>
 
-            <div class="flex justify-center space-x-4 mb-8">
-                <% iconLinks.forEach(iconLink => { %>
-                    <a href="<%= iconLink.url %>" target="_blank" class="w-10 h-10 hover:scale-110 transition-transform" style="color: var(--text-color);"><%- iconLink.svg_code %></a>
-                <% }); %>
-            </div>
+            <% if (iconLinks.length) { %>
+                <nav class="mt-6 flex flex-wrap justify-center gap-4" aria-label="Social links">
+                    <% iconLinks.forEach(icon => { let host = ''; try { host = new URL(icon.url).hostname.replace(/^www\./, ''); } catch {} %>
+                        <a href="<%= icon.url %>" target="_blank" rel="noopener noreferrer me" aria-label="<%= host %>"
+                           class="size-9 transition duration-300 ease-smooth hover:-translate-y-0.5 hover:scale-110 [&>svg]:size-full"
+                           style="color: var(--text-color);"><%- icon.svg_code %></a>
+                    <% }) %>
+                </nav>
+            <% } %>
 
-            <div id="links" class="flex flex-col space-y-4">
-                <% links.forEach(link => {
-                    %><%- include('partials/link-card', {link: link}) %><% 
-                }); %>
+            <ul id="links" class="mt-8 flex flex-col gap-4">
+                <% links.forEach((link, i) => { %>
+                    <li class="animate-fade-up" style="animation-delay: <%= 80 + i * 60 %>ms">
+                        <%- include('partials/link-card', { link }) %>
+                    </li>
+                <% }) %>
+            </ul>
+        </div>
+    </main>
+
+    <% if (showCountryPopup) { %>
+        <div x-show="showPopup" x-cloak
+             x-transition:enter="transition duration-300 ease-out"
+             x-transition:enter-start="opacity-0"
+             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 font-sans backdrop-blur-sm">
+            <div x-show="showPopup"
+                 x-transition:enter="transition duration-300 ease-out delay-75"
+                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                 role="dialog" aria-modal="true" aria-labelledby="country-title"
+                 class="w-full max-w-sm rounded-3xl bg-white p-7 text-zinc-900 shadow-2xl">
+                <h2 id="country-title" class="text-center text-xl font-bold">Select your country</h2>
+                <p class="mt-2 mb-6 text-center text-sm text-zinc-600">We couldn't detect your country. Please pick it to see the links available to you.</p>
+                <%- include('partials/country-selector', { countries }) %>
             </div>
         </div>
-    </div>
+    <% } %>
 
-    <!-- Country Selection Popup -->
-    <div x-show="showPopup"
-         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-         x-cloak>
-        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-sm w-full">
-            <h2 class="text-2xl font-bold mb-4 text-center">Select Your Country</h2>
-            <p class="text-gray-600 mb-6 text-center">We couldn't detect your country. Please select it to see available links.</p>
-            
-            <%- include('partials/country-selector', { countries: countries }) %>
-
-        </div>
-    </div>
+    <script>
+        window.addEventListener('DOMContentLoaded', function () {
+            if (!window.FingerprintJS || !window.fetch) return;
+            FingerprintJS.load({ monitoring: false })
+                .then(function (fp) { return fp.get(); })
+                .then(function (result) {
+                    var body = new URLSearchParams({
+                        fingerprint: result.visitorId,
+                        referrer: document.referrer || '',
+                        userId: localStorage.getItem('userId') || '',
+                    });
+                    return fetch('/track', { method: 'POST', body: body, credentials: 'same-origin' });
+                })
+                .then(function (res) { return res.ok ? res.json() : null; })
+                .then(function (data) { if (data && data.userId) localStorage.setItem('userId', data.userId); })
+                .catch(function () {});
+        });
+    </script>
     <script>
         <%- themeContent.js %>
     </script>

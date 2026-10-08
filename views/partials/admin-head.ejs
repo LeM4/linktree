@@ -1,0 +1,13 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"scrollIntoViewOnBoost":false,"globalViewTransitions":true}'>
+<link rel="icon" href="/static/favicon.png">
+<link rel="stylesheet" href="<%= asset('styles.css') %>">
+<script defer src="<%= asset('vendor/htmx.min.js') %>"></script>
+<script defer src="<%= asset('vendor/alpine.min.js') %>"></script>
+<script>
+    // Entrance animations only on the first load, not after every htmx swap.
+    document.addEventListener('htmx:beforeSwap', () => document.body.setAttribute('data-swapped', ''));
+</script>

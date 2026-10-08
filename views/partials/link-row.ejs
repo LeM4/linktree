@@ -1,0 +1,90 @@
+<li x-data="{ editing: false }"
+    class="group rounded-xl border border-zinc-200 bg-white transition duration-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-700"
+    :class="editing && 'border-zinc-300 shadow-sm dark:border-zinc-700'">
+    <div class="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
+        <div class="flex flex-col">
+            <form action="/admin/links/<%= link.id %>/move" method="POST">
+                <input type="hidden" name="direction" value="up">
+                <button type="submit" class="btn btn-ghost size-6 rounded-md p-0" aria-label="Move up" <%= index === 0 ? 'disabled' : '' %>>
+                    <%- include('icon', { name: 'chevron-up', cls: 'size-3.5' }) %>
+                </button>
+            </form>
+            <form action="/admin/links/<%= link.id %>/move" method="POST">
+                <input type="hidden" name="direction" value="down">
+                <button type="submit" class="btn btn-ghost size-6 rounded-md p-0" aria-label="Move down" <%= index === total - 1 ? 'disabled' : '' %>>
+                    <%- include('icon', { name: 'chevron-down', cls: 'size-3.5' }) %>
+                </button>
+            </form>
+        </div>
+
+        <div class="min-w-0 flex-1 <%= link.enabled ? '' : 'opacity-55' %> transition-opacity">
+            <div class="flex flex-wrap items-center gap-1.5">
+                <p class="truncate font-medium"><%= link.title %></p>
+                <% if (!link.enabled) { %>
+                    <span class="badge bg-zinc-100 text-zinc-600 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">Hidden</span>
+                <% } %>
+                <% if (link.is_18_plus) { %>
+                    <span class="badge bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30">18+</span>
+                <% } %>
+                <% if (link.blocked.length) { %>
+                    <span class="badge bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30" title="Hidden in <%= link.blocked.join(', ') %>">
+                        <%- include('icon', { name: 'globe', cls: 'size-3' }) %>
+                        <%= link.blocked.length <= 3 ? link.blocked.join(', ') : `${link.blocked.length} countries` %>
+                    </span>
+                <% } %>
+            </div>
+            <p class="truncate text-sm text-zinc-500 dark:text-zinc-400"><%= link.url %></p>
+        </div>
+
+        <form action="/admin/links/<%= link.id %>/toggle" method="POST" class="flex">
+            <button type="submit" role="switch" aria-checked="<%= link.enabled ? 'true' : 'false' %>" class="switch"
+                    title="<%= link.enabled ? 'Visible – click to hide' : 'Hidden – click to show' %>">
+                <span class="sr-only">Visible</span>
+            </button>
+        </form>
+        <button type="button" class="btn btn-ghost btn-icon" @click="editing = !editing"
+                :class="editing && 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'"
+                :aria-expanded="editing" aria-label="Edit link">
+            <%- include('icon', { name: 'pencil' }) %>
+        </button>
+        <form action="/admin/links/<%= link.id %>/delete" method="POST" hx-confirm="Delete “<%= link.title %>”?">
+            <button type="submit" class="btn btn-danger btn-icon" aria-label="Delete link">
+                <%- include('icon', { name: 'trash' }) %>
+            </button>
+        </form>
+    </div>
+
+    <div x-show="editing" x-cloak
+         x-transition:enter="transition duration-200 ease-out"
+         x-transition:enter-start="opacity-0 -translate-y-1"
+         x-transition:leave="transition duration-150 ease-in"
+         x-transition:leave-end="opacity-0 -translate-y-1"
+         class="border-t border-zinc-100 p-3 sm:p-4 dark:border-zinc-800">
+        <form action="/admin/links/<%= link.id %>" method="POST" class="grid gap-3 sm:grid-cols-2">
+            <div>
+                <label class="label" for="link-title-<%= link.id %>">Title</label>
+                <input class="input" id="link-title-<%= link.id %>" name="title" value="<%= link.title %>" required maxlength="200">
+            </div>
+            <div>
+                <label class="label" for="link-url-<%= link.id %>">URL</label>
+                <input class="input" id="link-url-<%= link.id %>" name="url" value="<%= link.url %>" required inputmode="url">
+            </div>
+            <div class="sm:col-span-2">
+                <label class="label" for="link-countries-<%= link.id %>">Blocked countries</label>
+                <input class="input uppercase" id="link-countries-<%= link.id %>" name="countries" value="<%= link.blocked.join(', ') %>" placeholder="e.g. US, DE, FR" autocomplete="off">
+                <p class="hint">ISO country codes, comma separated. Visitors from these countries never receive this link.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-2 sm:col-span-2">
+                <button type="submit" form="adult-<%= link.id %>" class="btn btn-secondary btn-sm">
+                    <%- include('icon', { name: 'eye-off', cls: 'size-3.5' }) %>
+                    <%= link.is_18_plus ? 'Remove 18+ warning' : 'Mark as 18+' %>
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" class="btn btn-ghost" @click="editing = false">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
+        </form>
+        <form id="adult-<%= link.id %>" action="/admin/links/<%= link.id %>/toggle-18-plus" method="POST" hidden></form>
+    </div>
+</li>

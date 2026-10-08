@@ -1,7 +1,177 @@
-@import url('https://fonts.googleapis.com/css2?family=Arvo:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import "tailwindcss" source(none);
+@source "../views";
 
-@import "tailwindcss";
+@font-face {
+  font-family: "Arvo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/arvo-latin-400-normal.woff2") format("woff2");
+}
 
-body {
-    font-family: 'Arvo', serif;
+@font-face {
+  font-family: "Arvo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/arvo-latin-700-normal.woff2") format("woff2");
+}
+
+@theme {
+  --font-display: "Arvo", ui-serif, Georgia, serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease-smooth: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --animate-fade-up: fade-up 0.5s var(--ease-smooth) both;
+  --animate-fade-in: fade-in 0.3s var(--ease-smooth) both;
+  --animate-pop-in: pop-in 0.25s var(--ease-smooth) both;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  [x-cloak] {
+    display: none !important;
+  }
+
+  [id] {
+    scroll-margin-top: 5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---- Admin UI components ---------------------------------------------------- */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-zinc-200/80 bg-white shadow-xs dark:border-zinc-800 dark:bg-zinc-900;
+  }
+
+  .card-header {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 px-5 py-4 dark:border-zinc-800;
+  }
+
+  .card-title {
+    @apply flex items-center gap-2 text-base font-semibold tracking-tight;
+  }
+
+  .card-body {
+    @apply p-5;
+  }
+
+  .btn {
+    @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium whitespace-nowrap transition duration-200 ease-(--ease-smooth) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-zinc-900 text-white shadow-sm hover:bg-zinc-700 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200;
+  }
+
+  .btn-secondary {
+    @apply bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700;
+  }
+
+  .btn-ghost {
+    @apply text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100;
+  }
+
+  .btn-danger {
+    @apply text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:text-zinc-400 dark:hover:bg-red-500/10 dark:hover:text-red-400;
+  }
+
+  .btn-icon {
+    @apply size-9 p-0;
+  }
+
+  .btn-sm {
+    @apply rounded-lg px-2.5 py-1.5 text-xs;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-xs transition duration-200 placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300;
+  }
+
+  .hint {
+    @apply mt-1.5 text-xs text-zinc-500 dark:text-zinc-400;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium leading-4 ring-1 ring-inset;
+  }
+
+  .switch {
+    @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full bg-zinc-300 transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 aria-checked:bg-emerald-500 dark:bg-zinc-700 dark:aria-checked:bg-emerald-500;
+  }
+
+  .switch::after {
+    @apply absolute left-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-(--ease-smooth) content-[''];
+  }
+
+  .switch[aria-checked="true"]::after {
+    @apply translate-x-5;
+  }
+
+  .nav-tab {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100;
+  }
+
+  .nav-tab[aria-current="page"] {
+    @apply bg-zinc-900 text-white hover:bg-zinc-900 hover:text-white dark:bg-white dark:text-zinc-900;
+  }
+
+  .section-link {
+    @apply flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100;
+  }
+}
+
+/* htmx: dim the page while a boosted request is in flight */
+.htmx-request main {
+  @apply opacity-70 transition-opacity duration-150;
+}
+
+[data-swapped] .animate-fade-up,
+[data-swapped] .animate-fade-in {
+  animation: none;
+}
+
+/* ---- Public page ------------------------------------------------------------ */
+@layer components {
+  .link-card {
+    @apply block rounded-2xl px-5 py-4 text-center text-lg shadow-md transition duration-300 ease-(--ease-smooth) hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current active:translate-y-0 active:scale-[0.98];
+    background-color: var(--link-color);
+    color: var(--link-text-color);
+  }
 }
