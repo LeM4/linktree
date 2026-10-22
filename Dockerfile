@@ -16,6 +16,7 @@ FROM oven/bun:${BUN_VERSION}-slim AS runtime
 ARG VERSION=dev
 ARG REVISION=unknown
 LABEL org.opencontainers.image.title="linktree" \
+      org.opencontainers.image.source="https://github.com/LeM4/linktree" \
       org.opencontainers.image.description="Lightweight self-hosted Linktree clone with geo-blocking and analytics" \
       org.opencontainers.image.licenses="ISC" \
       org.opencontainers.image.version="${VERSION}" \

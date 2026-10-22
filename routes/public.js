@@ -1,7 +1,7 @@
 import { getVisibleLinks, getLink, isVisible, getSettings, getIconLinks } from '../lib/db.js';
 import { findOrCreateUser, addVisitation, addLinkClick } from '../lib/analytics_db.js';
 import { getCountry } from '../lib/geo.js';
-import { buildPalette, loadTheme } from '../lib/theme.js';
+import { resolvePalette, loadTheme } from '../lib/theme.js';
 import { inferReferrerFromUserAgent } from '../lib/user-agent-helper.js';
 import { countryOptions, isCountryCode, normalizeReferrer, clampText } from '../lib/validate.js';
 
@@ -26,7 +26,7 @@ async function publicRoutes(fastify) {
       country,
       links: getVisibleLinks(country),
       iconLinks: getIconLinks(),
-      palette: buildPalette(settings.container_color),
+      palette: resolvePalette(settings),
       themeContent: loadTheme(settings.active_theme),
       showCountryPopup: !country,
       countries: country ? [] : countryOptions,

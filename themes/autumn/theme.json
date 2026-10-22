@@ -1,0 +1,11 @@
+{
+  "name": "Autumn",
+  "description": "Golden hour over layered hills, falling leaves, heirloom pumpkins",
+  "colors": {
+    "background": "#2a1222",
+    "text": "#fff5ec",
+    "link": "#fff5ec",
+    "linkText": "#2a1222",
+    "accent": "#ff9f5a"
+  }
+}

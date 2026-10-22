@@ -1,0 +1,11 @@
+{
+  "name": "Halloween",
+  "description": "Bats under a full moon over misty, moonlit hills",
+  "colors": {
+    "background": "#0b0914",
+    "text": "#f2eefb",
+    "link": "#1a1526",
+    "linkText": "#f2eefb",
+    "accent": "#ff8a3d"
+  }
+}

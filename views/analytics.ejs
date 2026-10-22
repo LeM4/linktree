@@ -4,174 +4,575 @@
     <%- include('partials/admin-head') %>
     <title>Analytics · Linktree</title>
 </head>
+<%
+const k = stats.kpis;
+const num = (n) => Number(n || 0).toLocaleString('en');
+const pct = (x, digits = 0) => `${(x * 100).toFixed(digits)}%`;
+const deltaOf = (key, isRate) => {
+    const d = stats.deltas[key];
+    if (d == null || !Number.isFinite(d)) return null;
+    const up = d >= 0;
+    const text = isRate ? `${Math.abs(d * 100).toFixed(1)} pts` : `${Math.round(Math.abs(d) * 100)}%`;
+    return { up, text, flat: Math.abs(d) < 0.005 };
+};
+const byCode = Object.fromEntries(stats.countries.map((c) => [c.code, c]));
+const maxVisits = stats.countries[0]?.visits || 0;
+const refLabel = (r) => (r ? r.replace(/^https?:\/\//, '').replace(/\/$/, '') : 'Direct / unknown');
+const heat = (alpha) => `rgb(var(--heat) / ${alpha})`;
+%>
 <body class="min-h-dvh bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100">
     <%- include('partials/admin-header') %>
 
-    <% const a = analyticsData; %>
     <main class="mx-auto max-w-6xl space-y-6 px-4 py-8 sm:px-6 lg:py-10">
+
+        <!-- Title + range -->
         <div class="flex flex-wrap items-end justify-between gap-4 animate-fade-up">
             <div>
                 <h1 class="text-2xl font-semibold tracking-tight">Analytics</h1>
-                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">Click any link, country or referrer to exclude it from the numbers.</p>
+                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                    <% if (focus !== null) { %>
+                        <%= countryName(focus) %>, <%= stats.range.title %>
+                    <% } else { %>
+                        All visitors, <%= stats.range.title %>
+                    <% } %>
+                </p>
             </div>
+            <nav class="inline-flex rounded-xl border border-zinc-200 bg-white p-1 shadow-xs dark:border-zinc-800 dark:bg-zinc-900" aria-label="Time range">
+                <% Object.entries(ranges).forEach(([key, r]) => { %>
+                    <a href="<%= href({ range: key }) %>"
+                       class="rounded-lg px-3 py-1.5 text-sm font-medium tabular-nums transition <%= key === rangeKey ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' %>"
+                       <%- key === rangeKey ? 'aria-current="true"' : '' %>><%= r.label %></a>
+                <% }) %>
+            </nav>
         </div>
 
-        <% if (hasFilters) { %>
-            <div class="card flex flex-wrap items-center gap-2 px-4 py-3 animate-fade-up">
-                <span class="mr-1 flex items-center gap-1.5 text-sm font-medium text-zinc-500 dark:text-zinc-400"><%- include('partials/icon', { name: 'filter' }) %> Excluding</span>
-                <% const chips = [
-                    ...filters.excludedLinks.map(v => ['excludedLinks', v]),
-                    ...filters.excludedCountries.map(v => ['excludedCountries', v]),
-                    ...filters.excludedReferrers.map(v => ['excludedReferrers', v]),
-                ]; %>
-                <% chips.forEach(([key, value]) => { %>
-                    <a href="<%= removeFilter(key, value) %>" class="group inline-flex max-w-xs items-center gap-1.5 rounded-full bg-zinc-100 py-1 pr-2 pl-3 text-xs font-medium text-zinc-700 transition hover:bg-red-50 hover:text-red-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-red-500/10 dark:hover:text-red-300" title="Remove filter">
-                        <span class="truncate"><%= value %></span>
+        <!-- Focus + exclusions -->
+        <% if (focus !== null || hasExclusions) { %>
+            <div class="flex flex-wrap items-center gap-2 animate-fade-up">
+                <% if (focus !== null) { %>
+                    <a href="<%= href({ country: null }) %>" class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 py-1 pr-2 pl-3 text-xs font-medium text-white transition hover:bg-emerald-700" title="Show all countries">
+                        <%- include('partials/icon', { name: 'target', cls: 'size-3.5' }) %>
+                        <%= countryName(focus) %>
+                        <%- include('partials/icon', { name: 'x', cls: 'size-3 opacity-80' }) %>
+                    </a>
+                <% } %>
+                <% [
+                    ...filters.excludedLinks.map(v => ['excludedLinks', v, linkLabel(v)]),
+                    ...filters.excludedCountries.map(v => ['excludedCountries', v, countryName(v === 'unknown' ? '' : v)]),
+                    ...filters.excludedReferrers.map(v => ['excludedReferrers', v, refLabel(v === 'unknown' ? '' : v)]),
+                ].forEach(([key, value, label]) => { %>
+                    <a href="<%= removeFilter(key, value) %>" title="Show again"
+                       class="group inline-flex max-w-xs items-center gap-1.5 rounded-full bg-zinc-200/70 py-1 pr-2 pl-3 text-xs font-medium text-zinc-600 transition hover:bg-zinc-200 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:text-white">
+                        <span class="line-through decoration-zinc-400"><%= label %></span>
                         <%- include('partials/icon', { name: 'x', cls: 'size-3 opacity-60 group-hover:opacity-100' }) %>
                     </a>
                 <% }) %>
-                <a href="/analytics" class="ml-auto text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">Clear all</a>
+                <% if (hasExclusions) { %>
+                    <a href="<%= href({ excludedLinks: null, excludedCountries: null, excludedReferrers: null }) %>" class="ml-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100">Reset hidden</a>
+                <% } %>
             </div>
         <% } %>
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4 animate-fade-up [animation-delay:50ms]">
+        <!-- KPIs -->
+        <section class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-zinc-200/80 bg-zinc-200/80 shadow-xs sm:grid-cols-6 lg:grid-cols-5 dark:border-zinc-800 dark:bg-zinc-800 animate-fade-up [animation-delay:40ms]">
             <% [
-                ['Total visits', a.totalVisits],
-                ['Unique visitors', a.uniqueVisitors],
-                ['Link clicks', a.totalClicks],
-                ['Clicks per visit', a.totalVisits ? (a.totalClicks / a.totalVisits).toFixed(2) : '–'],
-            ].forEach(([label, value]) => { %>
-                <div class="card px-5 py-4">
+                ['Visits', num(k.visits), deltaOf('visits'), 'Page views of your link page'],
+                ['Visitors', num(k.visitors), deltaOf('visitors'), 'Unique people'],
+                ['Link clicks', num(k.clicks), deltaOf('clicks'), 'Clicks on your links'],
+                ['Click rate', pct(k.ctr), deltaOf('ctr', true), 'Visits that led to at least one click'],
+                ['Returning', pct(k.returning), deltaOf('returning', true), 'Visitors seen on more than one day'],
+            ].forEach(([label, value, d, hint], i) => { %>
+                <div class="bg-white px-5 py-4 lg:col-span-1 dark:bg-zinc-900 <%= i < 3 ? 'sm:col-span-2' : 'sm:col-span-3' %> <%= i === 4 ? 'col-span-2' : '' %>" title="<%= hint %>">
                     <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400"><%= label %></p>
-                    <p class="mt-1 text-3xl font-semibold tracking-tight tabular-nums"><%= value %></p>
+                    <p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl"><%= value %></p>
+                    <% if (d) { %>
+                        <p class="mt-1 inline-flex items-center gap-0.5 text-xs font-medium tabular-nums <%= d.flat ? 'text-zinc-400' : d.up ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' %>">
+                            <% if (!d.flat) { %><%- include('partials/icon', { name: d.up ? 'arrow-up' : 'arrow-down', cls: 'size-3' }) %><% } %>
+                            <%= d.text %> <span class="font-normal text-zinc-400">vs prev.</span>
+                        </p>
+                    <% } else { %>
+                        <p class="mt-1 text-xs text-zinc-400"><%= stats.previous ? 'No earlier data' : 'Since the start' %></p>
+                    <% } %>
                 </div>
             <% }) %>
-        </div>
-
-        <section class="card animate-fade-up [animation-delay:100ms]">
-            <div class="card-header"><h2 class="card-title"><%- include('partials/icon', { name: 'chart' }) %> Last 12 hours</h2></div>
-            <div class="card-body"><div class="relative h-72"><canvas id="visitations-chart"></canvas></div></div>
         </section>
 
-        <div class="grid gap-6 lg:grid-cols-3 animate-fade-up [animation-delay:150ms]">
-            <% [
-                ['Top links', a.topLinks, 'link_url', 'excludedLinks'],
-                ['Top countries', a.topCountries, 'country', 'excludedCountries'],
-                ['Top referrers', a.topReferrers, 'referrer', 'excludedReferrers'],
-            ].forEach(([title, rows, field, key]) => { %>
-                <section class="card">
-                    <div class="card-header"><h2 class="card-title"><%= title %></h2></div>
-                    <div class="card-body">
-                        <% if (!rows.length) { %>
-                            <p class="py-6 text-center text-sm text-zinc-500">No data yet</p>
-                        <% } else { const max = rows[0].count; %>
-                            <ul class="space-y-1.5">
-                                <% rows.slice(0, 8).forEach(row => { const label = row[field] || 'unknown'; %>
-                                    <li>
-                                        <a href="<%= addFilter(key, row[field] || '') %>" title="Exclude <%= label %>"
-                                           class="group relative flex items-center justify-between gap-3 overflow-hidden rounded-lg px-3 py-1.5 text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60">
-                                            <span class="absolute inset-y-0 left-0 rounded-lg bg-indigo-500/10 transition-all duration-500 dark:bg-indigo-400/15" style="width: <%= Math.max(4, Math.round((row.count / max) * 100)) %>%"></span>
-                                            <span class="relative truncate group-hover:line-through"><%= label %></span>
-                                            <span class="relative font-semibold tabular-nums"><%= row.count %></span>
-                                        </a>
-                                    </li>
-                                <% }) %>
-                            </ul>
-                        <% } %>
+        <!-- Trend + highlights -->
+        <div class="grid gap-6 lg:grid-cols-3 animate-fade-up [animation-delay:80ms]">
+            <section class="card lg:col-span-2">
+                <div class="card-header">
+                    <h2 class="card-title">Visits and clicks</h2>
+                    <div class="flex items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400">
+                        <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-emerald-500"></span>Visits</span>
+                        <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-zinc-400"></span>Clicks</span>
                     </div>
-                </section>
-            <% }) %>
+                </div>
+                <div class="card-body"><div class="relative h-64"><canvas id="trend-chart" aria-label="Visits and clicks over time" role="img"></canvas></div></div>
+            </section>
+
+            <section class="card flex flex-col">
+                <div class="card-header"><h2 class="card-title">Highlights</h2></div>
+                <div class="card-body flex-1">
+                    <% if (insights.length) { %>
+                        <ul class="space-y-4">
+                            <% insights.forEach(item => { %>
+                                <li class="flex gap-3">
+                                    <span class="grid size-8 shrink-0 place-items-center rounded-lg <%= item.tone === 'down' ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' %>">
+                                        <%- include('partials/icon', { name: item.icon, cls: 'size-4' }) %>
+                                    </span>
+                                    <p class="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300"><%= item.text %></p>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    <% } else { %>
+                        <p class="text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">Highlights show up here once there is a bit more traffic in this period.</p>
+                    <% } %>
+                </div>
+            </section>
         </div>
 
-        <div class="grid gap-6 lg:grid-cols-2 animate-fade-up [animation-delay:200ms]">
-            <section class="card">
-                <div class="card-header"><h2 class="card-title">Visits per day</h2></div>
-                <div class="card-body"><div class="relative h-72"><canvas id="daily-chart"></canvas></div></div>
+        <!-- World map -->
+        <section class="card animate-fade-up [animation-delay:120ms]">
+            <div class="card-header">
+                <h2 class="card-title"><%- include('partials/icon', { name: 'globe' }) %> Where visitors come from</h2>
+                <span class="text-xs text-zinc-500 dark:text-zinc-400">Click a country to focus the whole page on it</span>
+            </div>
+            <div class="grid gap-6 p-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+                <script>
+                    window.worldMap = function (focus) {
+                        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+                        const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        return {
+                            tip: null, x: 0, y: 0, zoom: 1, hint: false, dragging: false,
+                            W: 0, H: 0, vb: null, moved: false, pts: {}, anim: 0, hintTimer: 0,
+                            init() {
+                                const svg = this.$refs.svg;
+                                if (!svg) return;
+                                [, , this.W, this.H] = svg.getAttribute('viewBox').split(' ').map(Number);
+                                this.vb = { x: 0, y: 0, w: this.W, h: this.H };
+                                const el = focus && svg.querySelector(`[data-code="${focus}"]`);
+                                if (el) {
+                                    const b = el.getBBox();
+                                    const pad = Math.max(b.width, b.height) * 0.9 + 30;
+                                    this.$nextTick(() => this.go(this.fit(b.x - pad, b.y - pad, b.width + pad * 2, b.height + pad * 2)));
+                                }
+                            },
+                            fit(x, y, w, h) {
+                                const ar = this.W / this.H;
+                                if (w / h > ar) { const nh = w / ar; y -= (nh - h) / 2; h = nh; } else { const nw = h * ar; x -= (nw - w) / 2; w = nw; }
+                                return this.bound({ x, y, w, h });
+                            },
+                            bound(b) {
+                                const w = clamp(b.w, this.W / 12, this.W);
+                                const h = (w * this.H) / this.W;
+                                const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+                                return { x: clamp(cx - w / 2, 0, this.W - w), y: clamp(cy - h / 2, 0, this.H - h), w, h };
+                            },
+                            apply() {
+                                const { x, y, w, h } = this.vb;
+                                this.$refs.svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+                                this.zoom = this.W / w;
+                                this.$refs.svg.style.setProperty('--z', this.zoom);
+                            },
+                            go(target) {
+                                cancelAnimationFrame(this.anim);
+                                if (reduced) { this.vb = target; return this.apply(); }
+                                const from = { ...this.vb }, t0 = performance.now();
+                                const step = (now) => {
+                                    const p = Math.min(1, (now - t0) / 420), e = 1 - Math.pow(1 - p, 4);
+                                    for (const k in from) this.vb[k] = from[k] + (target[k] - from[k]) * e;
+                                    this.apply();
+                                    if (p < 1) this.anim = requestAnimationFrame(step);
+                                };
+                                this.anim = requestAnimationFrame(step);
+                            },
+                            zoomAt(f, px, py) {
+                                const w = this.vb.w / f, h = this.vb.h / f;
+                                return this.bound({ x: px - (px - this.vb.x) * (w / this.vb.w), y: py - (py - this.vb.y) * (h / this.vb.h), w, h });
+                            },
+                            zoomBy(f) { this.go(this.zoomAt(f, this.vb.x + this.vb.w / 2, this.vb.y + this.vb.h / 2)); },
+                            reset() { this.go({ x: 0, y: 0, w: this.W, h: this.H }); },
+                            toSvg(cx, cy) {
+                                const r = this.$refs.svg.getBoundingClientRect();
+                                return { x: this.vb.x + ((cx - r.left) / r.width) * this.vb.w, y: this.vb.y + ((cy - r.top) / r.height) * this.vb.h };
+                            },
+                            wheel(e) {
+                                if (!e.ctrlKey && !e.metaKey) {
+                                    this.hint = true;
+                                    clearTimeout(this.hintTimer);
+                                    this.hintTimer = setTimeout(() => (this.hint = false), 1100);
+                                    return;
+                                }
+                                e.preventDefault();
+                                cancelAnimationFrame(this.anim);
+                                const p = this.toSvg(e.clientX, e.clientY);
+                                this.vb = this.zoomAt(Math.exp(-e.deltaY * 0.004), p.x, p.y);
+                                this.apply();
+                            },
+                            down(e) {
+                                this.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+                                this.moved = false;
+                            },
+                            move(e) {
+                                const prev = this.pts[e.pointerId];
+                                if (!prev) return;
+                                const ids = Object.keys(this.pts);
+                                if (ids.length === 2) {
+                                    const other = this.pts[ids.find((id) => id != e.pointerId)];
+                                    const before = Math.hypot(prev.x - other.x, prev.y - other.y);
+                                    const after = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+                                    const mid = this.toSvg((e.clientX + other.x) / 2, (e.clientY + other.y) / 2);
+                                    if (before > 0) { this.vb = this.zoomAt(after / before, mid.x, mid.y); this.apply(); }
+                                    this.moved = true;
+                                } else if (this.zoom > 1.01) {
+                                    const r = this.$refs.svg.getBoundingClientRect();
+                                    const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+                                    if (!this.moved && Math.hypot(dx, dy) < 3) return;
+                                    if (!this.moved) e.currentTarget.setPointerCapture(e.pointerId);
+                                    this.moved = this.dragging = true;
+                                    cancelAnimationFrame(this.anim);
+                                    this.vb = this.bound({ ...this.vb, x: this.vb.x - (dx / r.width) * this.vb.w, y: this.vb.y - (dy / r.height) * this.vb.h });
+                                    this.apply();
+                                }
+                                this.pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+                            },
+                            up(e) {
+                                delete this.pts[e.pointerId];
+                                this.dragging = false;
+                            },
+                        };
+                    };
+                </script>
+                <div class="relative" x-data="worldMap(<%= JSON.stringify(focus) %>)"
+                     @mousemove="const r = $el.getBoundingClientRect(); x = $event.clientX - r.left; y = $event.clientY - r.top"
+                     @mouseover="const t = $event.target.closest('[data-name]'); tip = t && !dragging ? { ...t.dataset } : null"
+                     @mouseleave="tip = null">
+                    <% if (worldMap) { %>
+                        <div class="relative overflow-hidden rounded-xl bg-zinc-50/60 ring-1 ring-zinc-100 select-none dark:bg-zinc-950/40 dark:ring-zinc-800"
+                             :class="[zoom > 1.01 ? 'touch-none' : 'touch-pan-y', zoom > 1.01 ? (dragging ? 'cursor-grabbing' : 'cursor-grab') : '']"
+                             @wheel="wheel($event)" @pointerdown="down($event)" @pointermove="move($event)"
+                             @pointerup="up($event)" @pointercancel="up($event)" @click.capture="if (moved) { $event.preventDefault(); $event.stopPropagation(); moved = false }">
+                            <svg x-ref="svg" viewBox="0 0 <%= worldMap.width %> <%= worldMap.height %>" class="block h-auto w-full" role="img" aria-label="World map of visitors">
+                                <% worldMap.shapes.forEach(s => { const c = byCode[s.code]; const a = c ? intensity(c.visits, maxVisits) : 0; const active = Boolean(s.code) && focus === s.code; %>
+                                    <% if (s.code) { %><a href="<%= href({ country: active ? null : s.code }) %>" draggable="false"><% } %>
+                                    <path d="<%= s.d %>" vector-effect="non-scaling-stroke" <%- s.code ? `data-code="${s.code}"` : '' %>
+                                          data-name="<%= s.code ? countryName(s.code) : s.name %>" data-visits="<%= c ? num(c.visits) : 0 %>" data-clicks="<%= c ? num(c.clicks) : 0 %>" data-share="<%= c ? pct(c.share, 1) : '0%' %>"
+                                          class="<%= a ? '' : 'fill-zinc-200 dark:fill-zinc-800' %> stroke-white transition-[opacity,stroke] duration-150 hover:opacity-75 dark:stroke-zinc-900 <%= active ? 'stroke-zinc-900 dark:stroke-white' : '' %>"
+                                          stroke-width="<%= active ? 1.8 : 0.6 %>" <%- a ? `style="fill: ${heat(a)}"` : '' %>/>
+                                    <% if (s.code) { %></a><% } %>
+                                <% }) %>
+                                <% worldMap.dots.forEach(s => { const c = byCode[s.code]; if (!c) return; const active = focus === s.code; %>
+                                    <a href="<%= href({ country: active ? null : s.code }) %>" draggable="false">
+                                        <circle cx="<%= s.x %>" cy="<%= s.y %>" r="<%= active ? 5 : 3.5 %>" vector-effect="non-scaling-stroke" data-code="<%= s.code %>"
+                                                data-name="<%= countryName(s.code) %>" data-visits="<%= num(c.visits) %>" data-clicks="<%= num(c.clicks) %>" data-share="<%= pct(c.share, 1) %>"
+                                                class="stroke-white dark:stroke-zinc-900" stroke-width="1"
+                                                style="fill: <%= heat(Math.max(0.5, intensity(c.visits, maxVisits))) %>; r: calc(<%= active ? 5 : 3.5 %>px / max(1, var(--z, 1) * 0.6))"/>
+                                    </a>
+                                <% }) %>
+                            </svg>
+
+                            <div class="absolute top-2.5 right-2.5 flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white/90 shadow-sm backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/90">
+                                <button type="button" @click="zoomBy(1.8)" :disabled="zoom >= 11.9" aria-label="Zoom in"
+                                        class="grid size-8 cursor-pointer place-items-center text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 active:scale-90 disabled:cursor-default disabled:opacity-35 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                                    <%- include('partials/icon', { name: 'plus' }) %>
+                                </button>
+                                <span class="h-px bg-zinc-200 dark:bg-zinc-700"></span>
+                                <button type="button" @click="zoomBy(1 / 1.8)" :disabled="zoom <= 1.01" aria-label="Zoom out"
+                                        class="grid size-8 cursor-pointer place-items-center text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 active:scale-90 disabled:cursor-default disabled:opacity-35 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                                    <%- include('partials/icon', { name: 'minus' }) %>
+                                </button>
+                                <span class="h-px bg-zinc-200 dark:bg-zinc-700"></span>
+                                <button type="button" @click="reset()" :disabled="zoom <= 1.01" aria-label="Show whole world"
+                                        class="grid size-8 cursor-pointer place-items-center text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 active:scale-90 disabled:cursor-default disabled:opacity-35 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                                    <%- include('partials/icon', { name: 'expand' }) %>
+                                </button>
+                            </div>
+
+                            <span x-show="zoom > 1.01" x-cloak x-transition.opacity
+                                  class="absolute bottom-2.5 left-2.5 rounded-md bg-white/90 px-1.5 py-0.5 font-mono text-[11px] text-zinc-600 shadow-xs backdrop-blur dark:bg-zinc-900/90 dark:text-zinc-300"
+                                  x-text="zoom.toFixed(1) + '×'"></span>
+
+                            <div x-show="hint" x-cloak x-transition.opacity.duration.200ms
+                                 class="pointer-events-none absolute inset-0 grid place-items-center bg-zinc-900/30 text-sm font-medium text-white backdrop-blur-[1px]">
+                                <span class="rounded-lg bg-zinc-900/80 px-3 py-1.5">Hold Ctrl and scroll to zoom</span>
+                            </div>
+                        </div>
+                    <% } else { %>
+                        <div class="grid h-64 place-items-center rounded-xl border border-dashed border-zinc-300 text-sm text-zinc-500 dark:border-zinc-700">
+                            Run <code class="mx-1">bun run build</code> to generate the world map.
+                        </div>
+                    <% } %>
+
+                    <div x-show="tip" x-cloak
+                         class="pointer-events-none absolute z-10 min-w-40 -translate-x-1/2 -translate-y-full rounded-xl bg-zinc-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-white dark:text-zinc-900"
+                         :style="`left: ${x}px; top: ${y - 12}px`">
+                        <p class="font-semibold" x-text="tip?.name"></p>
+                        <p class="mt-0.5 tabular-nums opacity-80"><span x-text="tip?.visits"></span> visits · <span x-text="tip?.clicks"></span> clicks · <span x-text="tip?.share"></span></p>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-between gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                        <span class="flex items-center gap-2">
+                            <span>Fewer</span>
+                            <span class="h-1.5 w-28 rounded-full" style="background: linear-gradient(to right, <%= heat(0.12) %>, <%= heat(1) %>)"></span>
+                            <span>More visits</span>
+                        </span>
+                        <span class="hidden sm:inline">Drag to pan when zoomed in</span>
+                    </div>
+                </div>
+
+                <div>
+                    <% if (!stats.countries.length) { %>
+                        <p class="py-8 text-center text-sm text-zinc-500">No visits in this period yet.</p>
+                    <% } else { %>
+                        <ol class="space-y-1">
+                            <% stats.countries.slice(0, 10).forEach((c, i) => { const active = focus === c.code; %>
+                                <li class="group flex items-center gap-1">
+                                    <a href="<%= href({ country: active ? null : (c.code || 'unknown') }) %>"
+                                       class="relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-lg px-2.5 py-1.5 text-sm transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60 <%= active ? 'bg-emerald-50 ring-1 ring-emerald-600/30 dark:bg-emerald-500/10' : '' %>">
+                                        <span class="absolute inset-y-0 left-0 rounded-lg bg-emerald-500/10" style="width: <%= Math.max(3, Math.round(c.share * 100)) %>%"></span>
+                                        <span class="relative w-5 text-xs tabular-nums text-zinc-400"><%= i + 1 %></span>
+                                        <span class="relative font-mono text-[11px] text-zinc-500"><%= c.code || '??' %></span>
+                                        <span class="relative min-w-0 flex-1 truncate"><%= countryName(c.code) %></span>
+                                        <span class="relative text-xs tabular-nums text-zinc-500"><%= pct(c.share) %></span>
+                                        <span class="relative w-10 text-right font-semibold tabular-nums"><%= num(c.visits) %></span>
+                                    </a>
+                                    <a href="<%= addFilter('excludedCountries', c.code) %>" title="Hide <%= countryName(c.code) %> from stats"
+                                       class="btn btn-ghost size-7 rounded-md p-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100">
+                                        <%- include('partials/icon', { name: 'eye-off', cls: 'size-3.5' }) %>
+                                    </a>
+                                </li>
+                            <% }) %>
+                        </ol>
+                        <% if (stats.countries.length > 10) { %>
+                            <p class="mt-3 px-2.5 text-xs text-zinc-500">+ <%= stats.countries.length - 10 %> more countries on the map</p>
+                        <% } %>
+                    <% } %>
+                </div>
+            </div>
+        </section>
+
+        <!-- Heatmap + referrers -->
+        <div class="grid gap-6 lg:grid-cols-5 animate-fade-up [animation-delay:160ms]">
+            <section class="card lg:col-span-3" x-data="{ mode: 'clicks' }">
+                <div class="card-header">
+                    <h2 class="card-title"><%- include('partials/icon', { name: 'clock' }) %> When fans are active</h2>
+                    <div class="inline-flex rounded-lg bg-zinc-100 p-0.5 text-xs font-medium dark:bg-zinc-800">
+                        <% ['clicks', 'visits'].forEach(m => { %>
+                            <button type="button" @click="mode = '<%= m %>'"
+                                    :class="mode === '<%= m %>' ? 'bg-white text-zinc-900 shadow-xs dark:bg-zinc-950 dark:text-zinc-100' : 'text-zinc-500'"
+                                    class="cursor-pointer rounded-md px-2.5 py-1 capitalize transition"><%= m %></button>
+                        <% }) %>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <% ['clicks', 'visits'].forEach(m => { const h = stats.heatmaps[m]; %>
+                        <div x-show="mode === '<%= m %>'" <%- m === 'visits' ? 'x-cloak' : '' %>>
+                            <div class="overflow-x-auto">
+                                <div class="grid min-w-[560px] grid-cols-[2.25rem_repeat(24,minmax(0,1fr))] gap-[3px]">
+                                    <span></span>
+                                    <% for (let hr = 0; hr < 24; hr++) { %>
+                                        <span class="text-center text-[10px] tabular-nums text-zinc-400"><%= hr % 3 === 0 ? String(hr).padStart(2, '0') : '' %></span>
+                                    <% } %>
+                                    <% h.rows.forEach(row => { %>
+                                        <span class="self-center text-[11px] text-zinc-500 dark:text-zinc-400"><%= row.label %></span>
+                                        <% row.cells.forEach((n, hr) => { %>
+                                            <span class="aspect-square rounded-[4px] bg-zinc-100 dark:bg-zinc-800/70"
+                                                  title="<%= row.label %> <%= String(hr).padStart(2, '0') %>:00 · <%= num(n) %> <%= m %>"
+                                                  <%- n ? `style="background-color: ${heat(intensity(n, h.max))}"` : '' %>></span>
+                                        <% }) %>
+                                    <% }) %>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                <p>
+                                    <% if (h.peak) { %>
+                                        Busiest: <span class="font-medium text-zinc-900 dark:text-zinc-100"><%= h.peak.day %> <%= String(h.peak.hour).padStart(2, '0') %>:00</span> with <%= num(h.peak.n) %> <%= m %>
+                                    <% } else { %>
+                                        No <%= m %> in this period yet.
+                                    <% } %>
+                                </p>
+                                <p>Server time (<%= Intl.DateTimeFormat().resolvedOptions().timeZone %>)</p>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
             </section>
-            <section class="card">
-                <div class="card-header"><h2 class="card-title">Link clicks by country</h2></div>
-                <div class="card-body"><div class="relative h-72"><canvas id="polar-chart"></canvas></div></div>
-            </section>
-            <section class="card">
-                <div class="card-header"><h2 class="card-title">Top links</h2></div>
-                <div class="card-body"><div class="relative h-72"><canvas id="top-links-pie-chart"></canvas></div></div>
-            </section>
-            <section class="card">
-                <div class="card-header"><h2 class="card-title">Top countries</h2></div>
-                <div class="card-body"><div class="relative h-72"><canvas id="top-countries-pie-chart"></canvas></div></div>
+
+            <section class="card lg:col-span-2">
+                <div class="card-header">
+                    <h2 class="card-title">Traffic sources</h2>
+                    <span class="text-xs text-zinc-500 dark:text-zinc-400">Visits · click rate</span>
+                </div>
+                <div class="card-body">
+                    <% if (!stats.referrers.length) { %>
+                        <p class="py-8 text-center text-sm text-zinc-500">No visits in this period yet.</p>
+                    <% } else { const maxRef = stats.referrers[0].visits; %>
+                        <ul class="space-y-1">
+                            <% stats.referrers.slice(0, 8).forEach(r => { %>
+                                <li class="group flex items-center gap-1">
+                                    <div class="relative flex min-w-0 flex-1 items-center gap-3 overflow-hidden rounded-lg px-2.5 py-1.5 text-sm">
+                                        <span class="absolute inset-y-0 left-0 rounded-lg bg-zinc-100 dark:bg-zinc-800/70" style="width: <%= Math.max(3, Math.round((r.visits / maxRef) * 100)) %>%"></span>
+                                        <span class="relative min-w-0 flex-1 truncate <%= r.referrer ? '' : 'text-zinc-500' %>"><%= refLabel(r.referrer) %></span>
+                                        <span class="relative w-10 text-right font-semibold tabular-nums"><%= num(r.visits) %></span>
+                                        <span class="relative w-11 text-right text-xs tabular-nums <%= r.ctr > k.ctr ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-500' %>"><%= pct(r.ctr) %></span>
+                                    </div>
+                                    <a href="<%= addFilter('excludedReferrers', r.referrer) %>" title="Hide this source from stats"
+                                       class="btn btn-ghost size-7 rounded-md p-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100">
+                                        <%- include('partials/icon', { name: 'eye-off', cls: 'size-3.5' }) %>
+                                    </a>
+                                </li>
+                            <% }) %>
+                        </ul>
+                    <% } %>
+                </div>
             </section>
         </div>
+
+        <!-- Links -->
+        <section class="card animate-fade-up [animation-delay:200ms]">
+            <div class="card-header"><h2 class="card-title"><%- include('partials/icon', { name: 'link' }) %> Links</h2></div>
+            <% if (!stats.links.length) { %>
+                <p class="px-5 py-10 text-center text-sm text-zinc-500">No link clicks in this period yet.</p>
+            <% } else { %>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[560px] text-sm">
+                        <thead>
+                            <tr class="text-left text-xs text-zinc-500 dark:text-zinc-400">
+                                <th class="px-5 py-2.5 font-medium">Link</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Clicks</th>
+                                <th class="px-3 py-2.5 text-right font-medium">People</th>
+                                <th class="px-3 py-2.5 text-right font-medium">Countries</th>
+                                <th class="w-40 px-3 py-2.5 font-medium">Share</th>
+                                <th class="w-12"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            <% stats.links.forEach(l => { %>
+                                <tr class="group transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40">
+                                    <td class="max-w-0 px-5 py-2.5">
+                                        <p class="truncate font-medium"><%= linkLabel(l.url) %></p>
+                                        <p class="truncate text-xs text-zinc-500"><%= prettyUrl(l.url) %></p>
+                                    </td>
+                                    <td class="px-3 py-2.5 text-right font-semibold tabular-nums"><%= num(l.clicks) %></td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums text-zinc-600 dark:text-zinc-300"><%= num(l.people) %></td>
+                                    <td class="px-3 py-2.5 text-right tabular-nums text-zinc-600 dark:text-zinc-300"><%= num(l.countries) %></td>
+                                    <td class="px-3 py-2.5">
+                                        <div class="flex items-center gap-2">
+                                            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                                                <div class="h-full rounded-full bg-emerald-500" style="width: <%= Math.max(2, Math.round(l.share * 100)) %>%"></div>
+                                            </div>
+                                            <span class="w-9 text-right text-xs tabular-nums text-zinc-500"><%= pct(l.share) %></span>
+                                        </div>
+                                    </td>
+                                    <td class="pr-3">
+                                        <a href="<%= addFilter('excludedLinks', l.url) %>" title="Hide this link from stats"
+                                           class="btn btn-ghost size-7 rounded-md p-0 opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100">
+                                            <%- include('partials/icon', { name: 'eye-off', cls: 'size-3.5' }) %>
+                                        </a>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </section>
+
+        <!-- Country x link -->
+        <section class="card animate-fade-up [animation-delay:240ms]">
+            <div class="card-header">
+                <h2 class="card-title">What each country clicks</h2>
+                <span class="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">Share of each country's clicks · outlined = favourite · <%- include('partials/icon', { name: 'arrow-up', cls: 'size-3' }) %> = picked more than average</span>
+            </div>
+            <% const m = stats.matrix; %>
+            <% if (!m.rows.length) { %>
+                <p class="px-5 py-10 text-center text-sm text-zinc-500">No link clicks in this period yet.</p>
+            <% } else { %>
+                <div class="overflow-x-auto p-5 pt-3">
+                    <table class="w-full min-w-[640px] border-separate border-spacing-1 text-sm">
+                        <thead>
+                            <tr>
+                                <th class="w-44"></th>
+                                <% m.links.forEach(l => { %>
+                                    <th class="px-1 pb-1 text-left align-bottom text-xs font-medium text-zinc-600 dark:text-zinc-300" title="<%= l.url %>">
+                                        <span class="line-clamp-2 max-w-[9rem]"><%= linkLabel(l.url) %></span>
+                                    </th>
+                                <% }) %>
+                                <th class="w-16 pb-1 text-right align-bottom text-xs font-medium text-zinc-500">Clicks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% m.rows.forEach(row => { const active = focus === row.code; %>
+                                <tr>
+                                    <th class="pr-2 text-left font-normal">
+                                        <a href="<%= href({ country: active ? null : (row.code || 'unknown') }) %>"
+                                           class="flex items-center gap-2 rounded-md px-1.5 py-1 transition hover:bg-zinc-100 dark:hover:bg-zinc-800 <%= active ? 'bg-emerald-50 dark:bg-emerald-500/10' : '' %>">
+                                            <span class="font-mono text-[11px] text-zinc-500"><%= row.code || '??' %></span>
+                                            <span class="truncate"><%= countryName(row.code) %></span>
+                                        </a>
+                                    </th>
+                                    <% row.cells.forEach((c, i) => { const a = c.n ? Math.round((0.1 + 0.85 * c.share) * 100) / 100 : 0; %>
+                                        <td class="h-10 rounded-md text-center text-xs tabular-nums <%= c.n ? (a > 0.8 ? 'text-white' : 'text-emerald-950 dark:text-emerald-50') : 'bg-zinc-50 text-zinc-300 dark:bg-zinc-800/40 dark:text-zinc-600' %> <%= i === row.best ? 'font-semibold ring-2 ring-emerald-600 ring-inset' : '' %>"
+                                            title="<%= countryName(row.code) %> → <%= linkLabel(m.links[i].url) %>: <%= num(c.n) %> clicks (<%= pct(c.share) %> of the country's clicks, <%= c.lift.toFixed(1) %>× the average)"
+                                            <%- c.n ? `style="background-color: ${heat(a)}"` : '' %>>
+                                            <span class="inline-flex items-center gap-0.5">
+                                                <%= c.n ? pct(c.share) : '–' %>
+                                                <% if (c.n >= 3 && c.lift >= 1.3) { %><%- include('partials/icon', { name: 'arrow-up', cls: 'size-3' }) %><% } %>
+                                            </span>
+                                        </td>
+                                    <% }) %>
+                                    <td class="text-right font-semibold tabular-nums"><%= num(row.total) %></td>
+                                </tr>
+                            <% }) %>
+                            <tr>
+                                <th class="pt-2 pr-2 pl-1.5 text-left text-xs font-medium text-zinc-500">All countries</th>
+                                <% m.links.forEach(l => { %>
+                                    <td class="pt-2 text-center text-xs tabular-nums text-zinc-500"><%= pct(l.share) %></td>
+                                <% }) %>
+                                <td class="pt-2 text-right text-xs font-semibold tabular-nums text-zinc-500"><%= num(m.total) %></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            <% } %>
+        </section>
     </main>
 
-    <script type="application/json" id="analytics-data"><%- json(analyticsData) %></script>
+    <script type="application/json" id="trend-data"><%- json(stats.trend) %></script>
     <script src="<%= asset('vendor/chart.umd.min.js') %>"></script>
     <script>
         (function () {
-            const data = JSON.parse(document.getElementById('analytics-data').textContent);
+            const data = JSON.parse(document.getElementById('trend-data').textContent);
             const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+            const accent = 'rgb(16, 185, 129)';
+            const canvas = document.getElementById('trend-chart');
+            const fill = canvas.getContext('2d').createLinearGradient(0, 0, 0, 256);
+            fill.addColorStop(0, 'rgba(16, 185, 129, 0.22)');
+            fill.addColorStop(1, 'rgba(16, 185, 129, 0)');
 
             Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
             Chart.defaults.color = dark ? '#a1a1aa' : '#71717a';
-            Chart.defaults.borderColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-            Chart.defaults.maintainAspectRatio = false;
-            Chart.defaults.plugins.legend.labels.usePointStyle = true;
-            Chart.defaults.plugins.legend.labels.boxWidth = 8;
+            Chart.defaults.borderColor = dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
 
-            const palette = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6', '#ef4444', '#84cc16', '#14b8a6', '#f97316'];
-            const color = (i, alpha = 1) => {
-                const hex = palette[i % palette.length];
-                const n = parseInt(hex.slice(1), 16);
-                return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-            };
-            const empty = (rows) => !rows || rows.length === 0;
-            const legendBottom = { plugins: { legend: { position: 'bottom' } } };
-
-            const hourlyCtx = document.getElementById('visitations-chart');
-            const gradient = hourlyCtx.getContext('2d').createLinearGradient(0, 0, 0, 280);
-            gradient.addColorStop(0, color(0, 0.25));
-            gradient.addColorStop(1, color(0, 0));
-            new Chart(hourlyCtx, {
+            new Chart(canvas, {
                 type: 'line',
                 data: {
-                    labels: data.hourly.labels,
+                    labels: data.labels,
                     datasets: [
-                        { label: 'All visits', data: data.hourly.total, fill: true, backgroundColor: gradient, borderColor: color(0), tension: 0.35, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-                        ...data.hourly.byCountry.map((c, i) => ({
-                            label: c.country || 'unknown', data: c.data, borderColor: color(i + 1), borderDash: [5, 5], tension: 0.35, pointRadius: 0, borderWidth: 1.5,
-                        })),
+                        { label: 'Visits', data: data.visits, borderColor: accent, backgroundColor: fill, fill: true, tension: 0.35, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 },
+                        { label: 'Clicks', data: data.clicks, borderColor: dark ? '#71717a' : '#a1a1aa', borderWidth: 1.5, tension: 0.35, pointRadius: 0, pointHoverRadius: 4 },
                     ],
                 },
-                options: { interaction: { mode: 'index', intersect: false }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } }, ...legendBottom },
-            });
-
-            new Chart(document.getElementById('daily-chart'), {
-                type: 'bar',
-                data: {
-                    labels: data.visitationsByDate.slice(-30).map(r => r.date),
-                    datasets: [{ label: 'Visits', data: data.visitationsByDate.slice(-30).map(r => r.count), backgroundColor: color(0, 0.7), borderRadius: 6 }],
-                },
-                options: { scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } },
-            });
-
-            const doughnut = (id, rows, label) => new Chart(document.getElementById(id), {
-                type: 'doughnut',
-                data: { labels: rows.map(r => r[label] || 'unknown'), datasets: [{ data: rows.map(r => r.count), backgroundColor: rows.map((_, i) => color(i, 0.85)), borderWidth: 0 }] },
-                options: { cutout: '60%', ...legendBottom },
-            });
-            if (!empty(data.topLinks)) doughnut('top-links-pie-chart', data.topLinks.slice(0, 10), 'link_url');
-            if (!empty(data.topCountries)) doughnut('top-countries-pie-chart', data.topCountries.slice(0, 10), 'country');
-
-            if (!empty(data.polarChartData)) {
-                const links = [...new Set(data.polarChartData.map(d => d.link))];
-                new Chart(document.getElementById('polar-chart'), {
-                    type: 'polarArea',
-                    data: {
-                        labels: data.polarChartData.map(d => d.label),
-                        datasets: [{ data: data.polarChartData.map(d => d.count), backgroundColor: data.polarChartData.map(d => color(links.indexOf(d.link), 0.6)), borderWidth: 0 }],
+                options: {
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { display: false }, tooltip: { padding: 10, cornerRadius: 10, boxPadding: 4, usePointStyle: true } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 }, border: { display: false } },
+                        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 }, border: { display: false } },
                     },
-                    options: { scales: { r: { ticks: { display: false } } }, plugins: { legend: { display: false } } },
-                });
-            }
+                },
+            });
         })();
     </script>
 </body>

@@ -16,7 +16,16 @@ import {
   moveIconLink,
 } from '../lib/db.js';
 import { exportDb, importDb } from '../lib/import_export.js';
-import { discoverThemes, isKnownTheme, buildPalette } from '../lib/theme.js';
+import {
+  isKnownTheme,
+  listThemes,
+  getThemeMeta,
+  themeColors,
+  parseOverrides,
+  resolvePalette,
+  buildPalette,
+  COLOR_TOKENS,
+} from '../lib/theme.js';
 import { safeUrl, parseCountryList, isHexColor, clampText } from '../lib/validate.js';
 import config from '../lib/config.js';
 
@@ -25,6 +34,8 @@ const MESSAGES = {
     profile: 'Profile saved',
     appearance: 'Appearance saved',
     theme: 'Background theme updated',
+    'theme-colors': 'Theme colors saved',
+    'theme-reset': 'Theme colors reset to default',
     'link-added': 'Link added',
     'link-saved': 'Link saved',
     'link-deleted': 'Link deleted',
@@ -75,13 +86,19 @@ async function adminRoutes(fastify) {
       null;
 
     reply.header('Cache-Control', 'no-store');
+    const activeTheme = getThemeMeta(settings.active_theme);
     return reply.view('admin', {
       page: 'admin',
       settings,
       links: getLinks(),
       iconLinks: getIconLinks(),
-      themes: discoverThemes(),
-      palette: buildPalette(settings.container_color),
+      themes: listThemes(),
+      activeTheme,
+      activeColors: themeColors(activeTheme, settings.theme_overrides),
+      overridden: Object.keys(parseOverrides(settings.theme_overrides)[activeTheme?.id] || {}),
+      colorTokens: COLOR_TOKENS,
+      palette: resolvePalette(settings),
+      basePalette: buildPalette(settings.container_color),
       publicUrl: config.publicUrl,
       flash,
     });
@@ -120,6 +137,33 @@ async function adminRoutes(fastify) {
   fastify.post('/admin/themes/deactivate', async (request, reply) => {
     setActiveTheme(null);
     return done(reply, { ok: 'theme', section: 'appearance' });
+  });
+
+  // Only colors that differ from the theme default are stored, so "reset" is just a delete.
+  fastify.post('/admin/themes/colors', async (request, reply) => {
+    const settings = getSettings() || {};
+    const theme = getThemeMeta(settings.active_theme);
+    if (!theme?.colors) return done(reply, { error: 'unknown-theme', section: 'appearance' });
+
+    const changes = {};
+    for (const { key } of COLOR_TOKENS) {
+      const value = String(request.body?.[key] || '').toLowerCase();
+      if (!isHexColor(value)) return done(reply, { error: 'invalid-color', section: 'appearance' });
+      if (value !== theme.colors[key]) changes[key] = value;
+    }
+    const overrides = parseOverrides(settings.theme_overrides);
+    if (Object.keys(changes).length) overrides[theme.id] = changes;
+    else delete overrides[theme.id];
+    updateSettings({ theme_overrides: JSON.stringify(overrides) });
+    return done(reply, { ok: 'theme-colors', section: 'appearance' });
+  });
+
+  fastify.post('/admin/themes/colors/reset', async (request, reply) => {
+    const settings = getSettings() || {};
+    const overrides = parseOverrides(settings.theme_overrides);
+    delete overrides[settings.active_theme];
+    updateSettings({ theme_overrides: JSON.stringify(overrides) });
+    return done(reply, { ok: 'theme-reset', section: 'appearance' });
   });
 
   // --- Links ---------------------------------------------------------------------

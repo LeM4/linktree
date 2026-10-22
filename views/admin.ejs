@@ -45,7 +45,7 @@
                         </div>
                         <div class="card px-4 py-3">
                             <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">Theme</p>
-                            <p class="mt-0.5 truncate text-xl font-semibold capitalize"><%= settings.active_theme || 'None' %></p>
+                            <p class="mt-0.5 truncate text-xl font-semibold"><%= activeTheme?.name || 'None' %></p>
                         </div>
                     </div>
 
@@ -190,40 +190,82 @@
                     <div class="card-header">
                         <h2 class="card-title"><%- include('partials/icon', { name: 'sparkle' }) %> Appearance</h2>
                     </div>
-                    <div class="card-body grid gap-6">
-                        <form action="/admin/appearance" method="POST" x-data="{ color: <%= JSON.stringify(palette.base) %> }">
-                            <label class="label" for="containerColor">Base color</label>
-                            <div class="flex flex-wrap items-center gap-3">
-                                <input type="color" x-model="color" aria-label="Pick base color"
-                                       class="h-10 w-14 cursor-pointer rounded-xl border border-zinc-300 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950">
-                                <input class="input w-32 font-mono" type="text" id="containerColor" name="containerColor" x-model="color"
-                                       value="<%= palette.base %>" pattern="#[0-9a-fA-F]{6}" required>
-                                <button type="submit" class="btn btn-primary">Save color</button>
-                            </div>
-                            <p class="hint">Background, card and link colors are derived from this single color.</p>
-                        </form>
-
+                    <div class="card-body grid gap-7">
+                        <% const swatch = (p) => ({ bg: p.background, link: p.link, text: p.text, accent: p.accent }); %>
                         <div>
-                            <p class="label">Background theme</p>
+                            <p class="label">Theme</p>
                             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                <form action="/admin/themes/deactivate" method="POST">
-                                    <button type="submit" class="flex w-full cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition hover:border-zinc-400 <%= !settings.active_theme ? 'border-zinc-900 ring-1 ring-zinc-900 dark:border-white dark:ring-white' : 'border-zinc-200 dark:border-zinc-800' %>">
-                                        <span class="font-medium">None</span>
-                                        <% if (!settings.active_theme) { %><%- include('partials/icon', { name: 'check' }) %><% } %>
-                                    </button>
-                                </form>
-                                <% themes.forEach(theme => { %>
-                                    <form action="/admin/themes/activate" method="POST">
-                                        <input type="hidden" name="themeName" value="<%= theme %>">
-                                        <button type="submit" class="flex w-full cursor-pointer items-center justify-between rounded-xl border px-4 py-3 text-left text-sm transition hover:border-zinc-400 <%= settings.active_theme === theme ? 'border-zinc-900 ring-1 ring-zinc-900 dark:border-white dark:ring-white' : 'border-zinc-200 dark:border-zinc-800' %>">
-                                            <span class="font-medium capitalize"><%= theme %></span>
-                                            <% if (settings.active_theme === theme) { %><%- include('partials/icon', { name: 'check' }) %><% } %>
+                                <% [{ id: null, name: 'None', description: 'Your own base color, no effects', sw: swatch(basePalette) },
+                                    ...themes.map(t => ({ ...t, sw: t.colors ? { bg: t.colors.background, link: t.colors.link, text: t.colors.text, accent: t.colors.accent } : swatch(basePalette) }))
+                                   ].forEach(t => { const active = (settings.active_theme || null) === t.id; %>
+                                    <form action="<%= t.id ? '/admin/themes/activate' : '/admin/themes/deactivate' %>" method="POST">
+                                        <% if (t.id) { %><input type="hidden" name="themeName" value="<%= t.id %>"><% } %>
+                                        <button type="submit" aria-pressed="<%= active %>"
+                                                class="group flex w-full cursor-pointer items-center gap-3 rounded-xl border p-2.5 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md <%= active ? 'border-zinc-900 ring-1 ring-zinc-900 dark:border-white dark:ring-white' : 'border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700' %>">
+                                            <span class="relative flex h-14 w-12 shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg px-1.5 shadow-inner ring-1 ring-black/5"
+                                                  style="background: radial-gradient(circle at 50% 0%, color-mix(in oklab, <%= t.sw.accent %> 45%, transparent), transparent 70%), <%= t.sw.bg %>">
+                                                <span class="size-2.5 rounded-full opacity-80" style="background: <%= t.sw.text %>"></span>
+                                                <span class="h-2 w-full rounded-full" style="background: <%= t.sw.link %>; box-shadow: inset 0 0 0 1px color-mix(in oklab, <%= t.sw.text %> 15%, transparent)"></span>
+                                                <span class="h-2 w-full rounded-full" style="background: <%= t.sw.link %>; box-shadow: inset 0 0 0 1px color-mix(in oklab, <%= t.sw.text %> 15%, transparent)"></span>
+                                            </span>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="flex items-center gap-1.5 text-sm font-medium"><%= t.name %>
+                                                    <% if (active) { %><span class="text-emerald-600 dark:text-emerald-400"><%- include('partials/icon', { name: 'check', cls: 'size-3.5' }) %></span><% } %>
+                                                </span>
+                                                <span class="line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400"><%= t.description || (t.colors ? '' : 'Uses your base color') %></span>
+                                            </span>
                                         </button>
                                     </form>
                                 <% }) %>
                             </div>
                             <p class="hint">Themes live in the <code>themes/</code> folder and are picked up automatically.</p>
                         </div>
+
+                        <% if (activeColors) { %>
+                            <form action="/admin/themes/colors" method="POST" class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-800"
+                                  x-data="{ colors: <%= JSON.stringify(activeColors) %>, defaults: <%= JSON.stringify(activeTheme.colors) %>,
+                                            preview() { const c = this.colors; $dispatch('theme-preview', { bg: c.background, text: c.text, link: c.link, 'link-text': c.linkText, accent: c.accent }) } }">
+                                <div class="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                                    <p class="text-sm font-semibold"><%= activeTheme.name %> colors</p>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Switching to <em>None</em> brings back your base color.</p>
+                                </div>
+                                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                    <% colorTokens.forEach(({ key, label }) => { %>
+                                        <div class="flex items-center gap-2.5 rounded-lg p-1.5 transition" :class="colors.<%= key %> !== defaults.<%= key %> && 'bg-amber-50 dark:bg-amber-500/10'">
+                                            <input type="color" x-model="colors.<%= key %>" @input="preview()" aria-label="<%= label %>"
+                                                   class="size-9 shrink-0 cursor-pointer rounded-lg border border-zinc-300 bg-white p-0.5 dark:border-zinc-700 dark:bg-zinc-950">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-xs font-medium"><%= label %></p>
+                                                <input type="text" name="<%= key %>" x-model="colors.<%= key %>" @change="preview()" value="<%= activeColors[key] %>" pattern="#[0-9a-fA-F]{6}" required
+                                                       class="w-full bg-transparent font-mono text-xs text-zinc-500 outline-none focus:text-zinc-900 dark:focus:text-zinc-100" aria-label="<%= label %> hex">
+                                            </div>
+                                            <button type="button" x-show="colors.<%= key %> !== defaults.<%= key %>" x-cloak x-transition.opacity
+                                                    @click="colors.<%= key %> = defaults.<%= key %>; preview()" title="Back to theme default"
+                                                    class="btn btn-ghost size-7 rounded-md p-0"><%- include('partials/icon', { name: 'x', cls: 'size-3.5' }) %></button>
+                                        </div>
+                                    <% }) %>
+                                </div>
+                                <div class="mt-4 flex flex-wrap items-center justify-end gap-2">
+                                    <% if (overridden.length) { %>
+                                        <button type="submit" form="theme-reset" class="btn btn-ghost">Reset to theme colors</button>
+                                    <% } %>
+                                    <button type="submit" class="btn btn-primary">Save colors</button>
+                                </div>
+                            </form>
+                            <form id="theme-reset" action="/admin/themes/colors/reset" method="POST" hidden></form>
+                        <% } else { %>
+                            <form action="/admin/appearance" method="POST" x-data="{ color: <%= JSON.stringify(basePalette.base) %> }">
+                                <label class="label" for="containerColor">Base color</label>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <input type="color" x-model="color" aria-label="Pick base color"
+                                           class="h-10 w-14 cursor-pointer rounded-xl border border-zinc-300 bg-white p-1 dark:border-zinc-700 dark:bg-zinc-950">
+                                    <input class="input w-32 font-mono" type="text" id="containerColor" name="containerColor" x-model="color"
+                                           value="<%= basePalette.base %>" pattern="#[0-9a-fA-F]{6}" required>
+                                    <button type="submit" class="btn btn-primary">Save color</button>
+                                </div>
+                                <p class="hint">Your page background. Text and button colors are picked automatically for contrast.</p>
+                            </form>
+                        <% } %>
                     </div>
                 </section>
 

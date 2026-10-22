@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import fs from 'fs';
+import path from 'path';
 import { safeUrl, parseCountryList, normalizeReferrer, isCountryCode, isHexColor } from '../lib/validate.js';
 import { createShade, createTint, getContrastingTextColor } from '../lib/colors.js';
 import { addFilter, removeFilter, parseFilterParam } from '../lib/view-helpers.js';
@@ -47,6 +49,15 @@ describe('view helpers', () => {
     expect(parseFilterParam(new URLSearchParams(added).getAll('excludedCountries'))).toEqual(['AT', 'DE']);
     expect(removeFilter({ excludedCountries: 'AT,DE' }, 'excludedCountries', 'AT')).toBe('?excludedCountries=DE');
     expect(addFilter({}, 'excludedReferrers', '')).toBe('?excludedReferrers=unknown');
+  });
+});
+
+describe('world map', () => {
+  const file = path.join(import.meta.dir, '..', 'public', 'data', 'world-map.json');
+  test.skipIf(!fs.existsSync(file))('covers large countries and microstates', () => {
+    const map = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const codes = new Set([...map.shapes, ...map.dots].map((s) => s.code));
+    for (const code of ['AT', 'US', 'BR', 'LI', 'SG', 'MT']) expect(codes.has(code)).toBe(true);
   });
 });
 

@@ -10,9 +10,15 @@ A lightweight, self-hosted, server-rendered "link in bio" page with per-country 
 - **Geo-blocking**: links are filtered on the server using Cloudflare's `CF-IPCountry` header. Blocked links never reach the browser. Visitors without a detectable country pick it once from a popup.
 - **18+ links**: show a content warning before the visitor continues.
 - **Admin dashboard**: manage links (reorder, hide, edit, geo-block), social icons, profile and colors. Includes a live preview and smooth htmx updates.
-- **Background themes**: drop-in HTML/CSS/JS themes (e.g. `snowfall`) that only load while active.
-- **Analytics**: visits, unique visitors, clicks, countries, referrers and hourly/daily charts, with click-to-exclude filters.
-- **No third-party requests**: htmx, Alpine.js, Chart.js, FingerprintJS and the Arvo font are self-hosted. There are no CDNs or Google Fonts.
+- **Background themes**: drop-in HTML/CSS/JS themes that only load while active. Snowfall, Halloween (flying bats) and Autumn (falling leaves, pumpkins) are included. Each theme can ship its own colors, which you can override in the admin.
+- **Analytics**: visits, visitors, clicks, click rate and returning visitors, each compared with the previous period. Also included:
+  - a world heatmap; click a country to focus the whole dashboard on it
+  - a weekday × hour activity heatmap
+  - a "what each country clicks" matrix that highlights favourite and over-indexing links
+  - traffic sources with click rates
+  - automatic highlights
+  - time ranges (24h to all time) and click-to-hide filters
+- **No third-party requests**: htmx, Alpine.js, Chart.js, FingerprintJS and the Geist font are self-hosted. There are no CDNs or Google Fonts.
 - **Backup**: JSON export/import from the dashboard or the CLI.
 - **Ready to deploy**: multi-arch Docker image on GHCR, plus a Docker Swarm stack for Portainer.
 
@@ -146,11 +152,43 @@ To release a version, run `git tag v2.0.0 && git push --tags`.
 
 ## Background themes
 
+Built-in themes:
+
+| Theme | Effects | Interaction |
+| --- | --- | --- |
+| **Halloween** | Moonlit indigo hills with procedurally grown bare trees, fog, stars, and a flock of bats drawn in code | Bats scatter from your cursor; tap to release a colony |
+| **Autumn** | Golden-hour landscape: layered hills with groves that fade into haze, a low sun, a trio of heirloom pumpkins backlit by the sun, falling leaves that tumble in shifting wind and settle on the hills | The scene follows your cursor with a parallax effect; the cursor blows leaves around; tap to kick up a pile |
+| **Snowfall** | Snowflakes | Flakes dodge the cursor |
+
+All effects respect `prefers-reduced-motion` and pause in background tabs.
+
+### Theme colors
+
+A theme can ship its own colors in `theme.json`. While that theme is active, *Admin → Appearance* shows a color editor that updates the preview live. Changed colors are highlighted and can be reset one at a time or all at once.
+
+Only colors that differ from the theme's defaults are stored. Switching back to *None* restores your own base color, which a theme never overwrites.
+
+### Creating a theme
+
 1. Create `themes/<name>/` (letters, digits, `-`, `_`) containing any of these files:
+   - `theme.json`: name, description and (optionally) colors. See the example below.
    - `index.html`: markup, injected behind the page
-   - `style.css`: scope every rule to `#theme-<name>`
+   - `style.css`: scope rules to `#theme-<name>` or `body[data-theme="<name>"]`. Hooks you can use: `.avatar`, `.link-card`, `.page-backdrop`, and the CSS variables `--page-bg`, `--text-color`, `--link-color`, `--link-text-color` and `--accent`.
    - `script.js`: wrap it in an IIFE so it doesn't leak globals
 2. The theme shows up automatically under *Admin → Appearance*. Click it to activate.
+
+```json
+{
+  "name": "Halloween",
+  "description": "Bats over a full moon",
+  "colors": {
+    "background": "#0b0914", "text": "#f2eefb",
+    "link": "#1a1526", "linkText": "#f2eefb", "accent": "#ff8a3d"
+  }
+}
+```
+
+All five colors are required for a theme to use its own palette. Without them, the theme uses your base color.
 
 Theme files are injected unescaped. Only add themes you trust.
 

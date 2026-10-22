@@ -12,8 +12,8 @@ const files = {
   'vendor/alpine.min.js': 'alpinejs/dist/cdn.min.js',
   'vendor/chart.umd.min.js': 'chart.js/dist/chart.umd.min.js',
   'vendor/fp.umd.min.js': '@fingerprintjs/fingerprintjs/dist/fp.umd.min.js',
-  'fonts/arvo-latin-400-normal.woff2': '@fontsource/arvo/files/arvo-latin-400-normal.woff2',
-  'fonts/arvo-latin-700-normal.woff2': '@fontsource/arvo/files/arvo-latin-700-normal.woff2',
+  'fonts/geist-latin-wght-normal.woff2': '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2',
+  'fonts/geist-latin-ext-wght-normal.woff2': '@fontsource-variable/geist/files/geist-latin-ext-wght-normal.woff2',
 };
 
 let failed = false;

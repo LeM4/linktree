@@ -1,0 +1,77 @@
+/* Autumn: dusk sky in CSS, the landscape + pumpkins are generated as SVG by script.js
+   (sized to the real viewport), and leaves fall on a canvas above it. */
+
+#theme-autumn,
+#theme-autumn * {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+#theme-autumn {
+	position: fixed;
+	inset: 0;
+	overflow: hidden;
+	--px: 0;
+	background:
+		linear-gradient(
+			to bottom,
+			var(--page-bg) 0%,
+			color-mix(in oklab, var(--page-bg) 55%, #8d3442) 30%,
+			#c85a45 50%,
+			#ef8f55 62%,
+			#ffc27a 74%
+		);
+}
+
+#theme-autumn .af-land,
+#theme-autumn .af-leaves {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+}
+
+#theme-autumn .af-layer {
+	translate: calc(var(--px) * var(--d) * 1px) 0;
+	animation: af-rise 1.8s cubic-bezier(.16, 1, .3, 1) both;
+	animation-delay: calc(var(--d) * 70ms);
+}
+
+#theme-autumn .af-sun {
+	animation: af-sun 2.4s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes af-rise {
+	from { opacity: 0; transform: translateY(calc(18px + var(--d) * 6px)); }
+	to { opacity: 1; transform: none; }
+}
+
+@keyframes af-sun {
+	from { opacity: 0; transform: translateY(40px); }
+	to { opacity: 1; transform: none; }
+}
+
+/* ---- page ------------------------------------------------------------------- */
+
+body[data-theme="autumn"] .page-backdrop { display: none; }
+
+body[data-theme="autumn"] .avatar {
+	box-shadow: 0 0 0 1px rgb(255 255 255 / 0.25), 0 20px 50px -18px rgb(30 5 15 / 0.8);
+}
+
+body[data-theme="autumn"] .link-card {
+	box-shadow: 0 1px 1px rgb(0 0 0 / 0.05), 0 14px 34px -16px rgb(40 8 20 / 0.7);
+}
+
+body[data-theme="autumn"] .link-card:hover {
+	box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 60%, transparent), 0 20px 46px -16px rgb(40 8 20 / 0.75);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	#theme-autumn .af-layer,
+	#theme-autumn .af-sun {
+		animation: none;
+		translate: none;
+	}
+}

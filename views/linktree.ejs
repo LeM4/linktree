@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="color-scheme: <%= palette.scheme %>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title><%= settings.page_title || settings.username || 'Links' %></title>
     <meta name="description" content="<%= settings.bio || '' %>">
-    <meta name="theme-color" content="<%= palette.base %>">
+    <meta name="theme-color" content="<%= palette.background %>">
     <meta property="og:title" content="<%= settings.page_title || settings.username || 'Links' %>">
     <meta property="og:description" content="<%= settings.bio || '' %>">
     <meta property="og:type" content="profile">
@@ -13,76 +13,82 @@
     <meta property="og:image" content="<%= settings.profile_pic_url %>">
     <% } %>
     <link rel="icon" href="/static/favicon.png">
-    <link rel="preload" href="/static/fonts/arvo-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/static/fonts/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="<%= asset('styles.css') %>">
     <style>
         :root {
-            --background-gradient: <%= palette.backgroundGradient %>;
-            --container-gradient: <%= palette.containerGradient %>;
-            --text-color: <%= palette.textColor %>;
-            --link-color: <%= palette.linkColor %>;
-            --link-text-color: <%= palette.linkTextColor %>;
+            --page-bg: <%= palette.background %>;
+            --text-color: <%= palette.text %>;
+            --link-color: <%= palette.link %>;
+            --link-text-color: <%= palette.linkText %>;
+            --accent: <%= palette.accent %>;
         }
         <%- themeContent.css %>
     </style>
     <script defer src="<%= asset('vendor/alpine.min.js') %>"></script>
     <script defer src="<%= asset('vendor/fp.umd.min.js') %>"></script>
 </head>
-<body class="min-h-dvh font-display antialiased" style="background: var(--background-gradient); color: var(--text-color);"
+<% const theme = settings.active_theme || 'none'; const initial = (settings.username || '?').trim().charAt(0).toUpperCase(); %>
+<body class="page min-h-dvh font-sans antialiased" data-theme="<%= theme %>"
       x-data="{ showPopup: <%= showCountryPopup ? 'true' : 'false' %> }">
 
-    <div id="theme-background" class="fixed inset-0 -z-10"><%- themeContent.html %></div>
+    <div class="page-backdrop" aria-hidden="true"></div>
+    <% if (themeContent.html) { %>
+        <div id="theme-background" class="fixed inset-0 -z-10"><%- themeContent.html %></div>
+    <% } %>
 
-    <main class="mx-auto flex min-h-dvh w-full max-w-lg flex-col px-4 py-10 transition duration-500 ease-smooth sm:py-16"
+    <main class="relative mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col px-5 pt-16 pb-12 transition duration-500 ease-smooth sm:justify-center sm:py-20"
           :class="showPopup && 'blur-sm scale-[0.99]'">
-        <div class="rounded-[2rem] p-6 shadow-2xl animate-fade-up sm:p-8" style="background: var(--container-gradient);">
-            <header class="flex flex-col items-center text-center">
+        <header class="relative flex flex-col items-center text-center">
+            <% if (settings.profile_pic_url && !themeContent.html) { %>
+                <div class="page-ambient" style="background-image: url('<%= settings.profile_pic_url %>')" aria-hidden="true"></div>
+            <% } %>
+            <div class="reveal" style="--i: 0">
                 <% if (settings.profile_pic_url) { %>
-                    <img src="<%= settings.profile_pic_url %>" alt="<%= settings.username %>" width="96" height="96"
-                         class="size-24 rounded-full object-cover shadow-lg ring-4 ring-white/40">
+                    <img src="<%= settings.profile_pic_url %>" alt="<%= settings.username %>" width="96" height="96" class="avatar">
                 <% } else { %>
-                    <div class="grid size-24 place-items-center rounded-full bg-black/10 text-4xl font-bold ring-4 ring-white/40">
-                        <%= (settings.username || '?').trim().charAt(0).toUpperCase() %>
-                    </div>
+                    <div class="avatar grid place-items-center text-[2rem] font-semibold tracking-tight" style="background: var(--text-color); color: var(--page-bg)"><%= initial %></div>
                 <% } %>
-                <h1 class="mt-4 text-2xl font-bold"><%= settings.username %></h1>
-                <% if (settings.bio) { %>
-                    <p class="mt-2 max-w-xs leading-relaxed whitespace-pre-line opacity-90"><%= settings.bio %></p>
-                <% } %>
-            </header>
+            </div>
+            <h1 class="reveal mt-5 text-[1.375rem] font-semibold tracking-[-0.02em]" style="--i: 1"><%= settings.username %></h1>
+            <% if (settings.bio) { %>
+                <p class="reveal mt-2 max-w-[26rem] text-[0.9688rem] leading-relaxed text-balance whitespace-pre-line" style="--i: 2; color: var(--muted)"><%= settings.bio %></p>
+            <% } %>
 
             <% if (iconLinks.length) { %>
-                <nav class="mt-6 flex flex-wrap justify-center gap-4" aria-label="Social links">
+                <nav class="reveal mt-5 flex flex-wrap justify-center gap-1" style="--i: 3" aria-label="Social links">
                     <% iconLinks.forEach(icon => { let host = ''; try { host = new URL(icon.url).hostname.replace(/^www\./, ''); } catch {} %>
-                        <a href="<%= icon.url %>" target="_blank" rel="noopener noreferrer me" aria-label="<%= host %>"
-                           class="size-9 transition duration-300 ease-smooth hover:-translate-y-0.5 hover:scale-110 [&>svg]:size-full"
-                           style="color: var(--text-color);"><%- icon.svg_code %></a>
+                        <a href="<%= icon.url %>" target="_blank" rel="noopener noreferrer me" aria-label="<%= host %>" class="social"><%- icon.svg_code %></a>
                     <% }) %>
                 </nav>
             <% } %>
+        </header>
 
-            <ul id="links" class="mt-8 flex flex-col gap-4">
-                <% links.forEach((link, i) => { %>
-                    <li class="animate-fade-up" style="animation-delay: <%= 80 + i * 60 %>ms">
-                        <%- include('partials/link-card', { link }) %>
-                    </li>
-                <% }) %>
-            </ul>
-        </div>
+        <ul id="links" class="mt-9 flex flex-col gap-3">
+            <% links.forEach((link, i) => { %>
+                <li class="reveal" style="--i: <%= 4 + i %>">
+                    <%- include('partials/link-card', { link }) %>
+                </li>
+            <% }) %>
+        </ul>
+
+        <% if (!links.length) { %>
+            <p class="reveal mt-9 text-center text-sm" style="--i: 4; color: var(--muted)">No links here yet.</p>
+        <% } %>
     </main>
 
     <% if (showCountryPopup) { %>
         <div x-show="showPopup" x-cloak
              x-transition:enter="transition duration-300 ease-out"
              x-transition:enter-start="opacity-0"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 font-sans backdrop-blur-sm">
+             class="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 backdrop-blur-md sm:items-center sm:p-4">
             <div x-show="showPopup"
-                 x-transition:enter="transition duration-300 ease-out delay-75"
-                 x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                 x-transition:enter="transition duration-500 ease-smooth delay-75"
+                 x-transition:enter-start="opacity-0 translate-y-6"
                  role="dialog" aria-modal="true" aria-labelledby="country-title"
-                 class="w-full max-w-sm rounded-3xl bg-white p-7 text-zinc-900 shadow-2xl">
-                <h2 id="country-title" class="text-center text-xl font-bold">Select your country</h2>
-                <p class="mt-2 mb-6 text-center text-sm text-zinc-600">We couldn't detect your country. Please pick it to see the links available to you.</p>
+                 class="sheet w-full max-w-sm rounded-[2rem] p-6 sm:p-7">
+                <h2 id="country-title" class="text-center text-lg font-semibold tracking-tight">Where are you visiting from?</h2>
+                <p class="mt-1.5 mb-6 text-center text-sm" style="color: var(--muted)">Some links depend on your country.</p>
                 <%- include('partials/country-selector', { countries }) %>
             </div>
         </div>
@@ -106,8 +112,10 @@
                 .catch(function () {});
         });
     </script>
+    <% if (themeContent.js) { %>
     <script>
         <%- themeContent.js %>
     </script>
+    <% } %>
 </body>
 </html>
